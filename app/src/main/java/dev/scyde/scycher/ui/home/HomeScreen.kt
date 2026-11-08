@@ -90,6 +90,7 @@ import dev.scyde.scycher.ui.common.LocalWallpaper
 import dev.scyde.scycher.ui.common.LocalWallpaperGeometry
 import dev.scyde.scycher.ui.common.WallpaperGeometry
 import dev.scyde.scycher.ui.common.drawWallpaper
+import dev.scyde.scycher.ui.common.adaptive
 import dev.scyde.scycher.ui.common.glass
 import dev.scyde.scycher.ui.library.AppLibrary
 import dev.scyde.scycher.ui.widgets.WidgetPicker
@@ -104,8 +105,9 @@ import kotlin.math.roundToInt
 @Composable
 fun LauncherRoot(state: LauncherState) {
     val app = ScycherApp.instance
-    val cfg by app.store.config.collectAsState()
+    val rawCfg by app.store.config.collectAsState()
     val wp by app.wallpaper.state.collectAsState()
+    val cfg = remember(rawCfg, wp.accent, wp.dominant) { rawCfg.adaptive(wp) }
     val badges by ScycherNotificationListener.badges.collectAsState()
     val geo = remember { WallpaperGeometry() }
     val density = LocalDensity.current
@@ -156,7 +158,7 @@ fun LauncherRoot(state: LauncherState) {
             Modifier
                 .fillMaxSize()
                 .onSizeChanged { geo.rootSize = Size(it.width.toFloat(), it.height.toFloat()); state.rootSize = geo.rootSize }
-                .drawBehind { drawWallpaper(wp, geo, cfg.look.wallpaperDim) }
+                .drawBehind { drawWallpaper(wp, geo, cfg.look.wallpaperDim, cfg.look.wallpaperBlur, cfg.look.vignette) }
         ) {
             Box(
                 Modifier
@@ -197,7 +199,10 @@ fun LauncherRoot(state: LauncherState) {
             WidgetPicker()
             WidgetSettingsSheet()
             RenameDialog()
+            AppChooserOverlay()
+            CategoryChooser()
             Onboarding()
+            PinOverlay()
         }
     }
 }
@@ -221,6 +226,7 @@ private fun Modifier.homeGestures(state: LauncherState): Modifier = composed {
             var startSpan = 0f; var startCentroid = Offset.Zero
             var lastSpan = 0f; var lastCentroid = Offset.Zero
             var downFired = false
+            var iconTarget: String? = null
             val vt = VelocityTracker()
             val height = size.height.toFloat()
             val driveLibrary = g.swipeUp == GestureAction.OpenLibrary || g.swipeUp == GestureAction.Search
@@ -240,7 +246,15 @@ private fun Modifier.homeGestures(state: LauncherState): Modifier = composed {
                         vt.addPosition(ch.uptimeMillis, ch.position)
                         if (total.getDistance() < slop && ch.uptimeMillis - startTime > longPress) mode = -1
                         else if (total.getDistance() > slop) {
-                            mode = if (abs(total.y) > abs(total.x) * 1.25f && ev.changes.none { it.isConsumed }) 1 else -1
+                            val vertical = abs(total.y) > abs(total.x) * 1.25f && ev.changes.none { it.isConsumed }
+                            val zone = state.swipeZones.values.firstOrNull { it.first.contains(down.position) }
+                            mode = when {
+                                !vertical -> -1
+                                zone == null -> 1
+                                zone.second.startsWith("stack") -> -1 // the widget scrolls itself
+                                zone.second.startsWith("app:") && total.y < 0 -> { iconTarget = zone.second.removePrefix("app:"); 3 }
+                                else -> 1
+                            }
                         }
                     }
                     1 -> {
@@ -261,6 +275,11 @@ private fun Modifier.homeGestures(state: LauncherState): Modifier = composed {
                             }
                         }
                     }
+                    3 -> {
+                        val ch = ev.changes.firstOrNull { it.id == down.id }
+                        if (ch != null) total += ch.positionChange()
+                        ev.changes.forEach { it.consume() }
+                    }
                     2 -> {
                         ev.changes.forEach { it.consume() }
                         if (pressed.size >= 2) {
@@ -272,6 +291,7 @@ private fun Modifier.homeGestures(state: LauncherState): Modifier = composed {
                 if (pressed.isEmpty()) break
             }
             when (mode) {
+                3 -> if (-total.y > threshold * 0.5f) iconTarget?.let { state.launch(it, null) }
                 1 -> {
                     val vy = vt.calculateVelocity().y
                     if (total.y < 0) {
@@ -285,6 +305,7 @@ private fun Modifier.homeGestures(state: LauncherState): Modifier = composed {
                     val dy = lastCentroid.y - startCentroid.y
                     when {
                         startSpan > 0 && lastSpan / startSpan < 0.68f -> state.runGesture(g.pinchIn, g.pinchInApp)
+                        startSpan > 0 && lastSpan / startSpan > 1.45f -> state.runGesture(g.pinchOut, g.pinchOutApp)
                         dy > threshold -> state.runGesture(g.twoFingerDown, g.twoFingerDownApp)
                         dy < -threshold -> state.runGesture(g.twoFingerUp, g.twoFingerUpApp)
                     }
@@ -388,7 +409,7 @@ private fun GridItem(item: HomeItem, pageIndex: Int, cwDp: Float, chDp: Float) {
             .jiggle(edit, item.id)
     ) {
         Box(
-            Modifier.itemGestures(item, DragSource.Page(pageIndex)) { bounds ->
+            Modifier.swipeZone(item).itemGestures(item, DragSource.Page(pageIndex)) { bounds ->
                 when (item.type) {
                     ItemType.App, ItemType.Shortcut -> if (!edit) item.app?.let { state.launch(it, bounds) }
                     ItemType.Folder -> state.openFolderId = item.id

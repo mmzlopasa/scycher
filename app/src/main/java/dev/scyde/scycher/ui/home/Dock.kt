@@ -132,6 +132,7 @@ private fun DockSlot(
                 alpha = if (dragging) 0f else 1f
             }
             .jiggle(state.editMode && source == DragSource.Dock, item.id)
+            .swipeZone(item)
             .itemGestures(item, source) { bounds ->
                 when (item.type) {
                     ItemType.Folder -> state.openFolderId = item.id

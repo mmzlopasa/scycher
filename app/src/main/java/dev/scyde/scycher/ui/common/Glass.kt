@@ -151,7 +151,7 @@ private fun DrawScope.drawMaterial(
 }
 
 /** Draws the wallpaper (Scycher mode) or nothing (system wallpaper shows through the window). */
-fun DrawScope.drawWallpaper(wp: WallpaperState, geo: WallpaperGeometry, dim: Float) {
+fun DrawScope.drawWallpaper(wp: WallpaperState, geo: WallpaperGeometry, dim: Float, blur: Float = 0f, vignette: Float = 0f) {
     val img = wp.image
     if (img != null) {
         val (o, s) = geo.dst(img.width, img.height)
@@ -161,7 +161,36 @@ fun DrawScope.drawWallpaper(wp: WallpaperState, geo: WallpaperGeometry, dim: Flo
             filterQuality = FilterQuality.Medium,
         )
     }
+    val b = wp.blurred
+    if (blur > 0f && b != null) {
+        val (o, s) = geo.dst(b.width, b.height)
+        drawImage(
+            b, IntOffset.Zero, IntSize(b.width, b.height),
+            IntOffset(o.x.roundToInt(), o.y.roundToInt()), IntSize(s.width.roundToInt(), s.height.roundToInt()),
+            alpha = blur.coerceIn(0f, 1f), filterQuality = FilterQuality.Low,
+        )
+    }
     if (dim > 0f) drawRect(Color.Black.copy(alpha = dim))
+    if (vignette > 0f) drawRect(
+        Brush.radialGradient(
+            0.45f to Color.Transparent, 1f to Color.Black.copy(alpha = vignette.coerceIn(0f, 1f)),
+            center = center, radius = size.maxDimension * 0.75f,
+        )
+    )
+}
+
+/** Ambient theme: re-colors accent, dock and widgets from the wallpaper. */
+fun LauncherConfig.adaptive(wp: WallpaperState): LauncherConfig {
+    if (!look.adaptiveColors) return this
+    val acc = wp.accent ?: return this
+    val dom = (wp.dominant ?: acc).toInt()
+    val dark = androidx.core.graphics.ColorUtils.blendARGB(dom, 0xFF000000.toInt(), 0.55f).toLong() and 0xFFFFFFFFL
+    val light = androidx.core.graphics.ColorUtils.blendARGB(dom, 0xFFFFFFFF.toInt(), 0.6f).toLong() and 0xFFFFFFFFL
+    return copy(
+        look = look.copy(accentColor = acc),
+        dock = dock.copy(tintColor = light),
+        widgets = widgets.copy(tintColor = dark, accentColor = acc),
+    )
 }
 
 /** Full-screen blurred backdrop (App Library, folders). */

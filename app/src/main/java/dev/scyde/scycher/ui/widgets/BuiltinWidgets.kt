@@ -147,10 +147,10 @@ fun WidgetSurface(item: HomeItem, modifier: Modifier = Modifier, autoBrush: Brus
 }
 
 /** Scale unit: 1f ≈ a 170dp square widget. */
-private fun BoxWithConstraintsScope.unit(): Float = min(maxWidth.value / 170f, maxHeight.value / 170f).coerceIn(0.45f, 2.4f)
+internal fun BoxWithConstraintsScope.unit(): Float = min(maxWidth.value / 170f, maxHeight.value / 170f).coerceIn(0.45f, 2.4f)
 
 @Composable
-private fun rememberNow(seconds: Boolean): ZonedDateTime {
+internal fun rememberNow(seconds: Boolean): ZonedDateTime {
     var now by remember { mutableStateOf(ZonedDateTime.now()) }
     LaunchedEffect(seconds) {
         while (true) {
@@ -163,7 +163,7 @@ private fun rememberNow(seconds: Boolean): ZonedDateTime {
 }
 
 @Composable
-private fun T(
+internal fun T(
     text: String, size: TextUnit, color: Color, weight: FontWeight = FontWeight.Normal,
     modifier: Modifier = Modifier, align: TextAlign? = null, maxLines: Int = 1, lineHeight: TextUnit = TextUnit.Unspecified,
 ) {
@@ -188,6 +188,9 @@ fun BuiltinWidget(item: HomeItem, modifier: Modifier = Modifier) {
         BuiltinKind.Photo -> PhotoWidget(item, modifier)
         BuiltinKind.Search -> SearchWidget(item, modifier)
         BuiltinKind.Greeting -> GreetingWidget(item, modifier)
+        BuiltinKind.Stack -> StackWidget(item, modifier)
+        BuiltinKind.Agenda -> AgendaWidget(item, modifier)
+        BuiltinKind.Toggles -> TogglesWidget(item, modifier)
         null -> Box(modifier)
     }
 }
@@ -200,6 +203,8 @@ private fun DigitalClock(item: HomeItem, modifier: Modifier) {
     val c = widgetColors(item)
     val now = rememberNow(w.clockSeconds)
     val pattern = if (w.clock24h) "HH:mm" else "h:mm"
+    val variant = item.extra["variant"] ?: "Classic"
+    if (variant != "Classic") { ClockVariant(item, modifier, variant, now, pattern); return }
     WidgetSurface(item, modifier) {
         val u = unit()
         val wide = maxWidth > maxHeight * 1.4f

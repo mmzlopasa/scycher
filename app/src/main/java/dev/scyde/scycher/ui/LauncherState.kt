@@ -64,7 +64,13 @@ interface HostCallbacks {
     fun addSystemWidget(provider: android.appwidget.AppWidgetProviderInfo, w: Int, h: Int)
     fun hostView(): View
     fun requestDefaultLauncher()
+    fun pickIcon(appKey: String)
+    fun authenticate(title: String, onSuccess: () -> Unit, onFallback: () -> Unit)
+    fun requestCalendarPermission()
 }
+
+data class PinRequest(val title: String, val onSuccess: () -> Unit)
+data class AppChooserRequest(val title: String, val onPick: (String?) -> Unit)
 
 @Stable
 class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: HostCallbacks) {
@@ -84,6 +90,13 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
     var widgetSettingsId by mutableStateOf<Long?>(null)
     var rename by mutableStateOf<RenameTarget?>(null)
     var resizingId by mutableStateOf<Long?>(null)
+    var pin by mutableStateOf<PinRequest?>(null)
+    var appChooser by mutableStateOf<AppChooserRequest?>(null)
+    var categoryFor by mutableStateOf<String?>(null)
+    var showHiddenApps by mutableStateOf(false)
+    /** Icons with a swipe-up action and stack widgets claim vertical swipes in these root rects. */
+    val swipeZones = HashMap<Long, Pair<androidx.compose.ui.geometry.Rect, String>>()
+
     /** Incremented on every onResume so UI can re-check permissions etc. */
     var resumeTick by mutableIntStateOf(0)
 
@@ -106,11 +119,14 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
 
     /* ------------------------------ overlays ------------------------------ */
 
-    fun anyOverlay() = menu != null || openFolderId != null || openCategory != null || widgetPicker ||
+    fun anyOverlay() = pin != null || appChooser != null || categoryFor != null || menu != null || openFolderId != null || openCategory != null || widgetPicker ||
         widgetSettingsId != null || rename != null || library.targetValue > 0f
 
     fun closeOverlays(): Boolean {
         var closed = false
+        if (pin != null) { pin = null; closed = true }
+        if (appChooser != null) { appChooser = null; closed = true }
+        if (categoryFor != null) { categoryFor = null; closed = true }
         if (menu != null) { menu = null; closed = true }
         if (rename != null) { rename = null; closed = true }
         if (widgetSettingsId != null) { widgetSettingsId = null; closed = true }
@@ -129,6 +145,7 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
     }
 
     fun closeLibrary() {
+        showHiddenApps = false
         scope.launch { library.animateTo(0f, spring(dampingRatio = 1f, stiffness = 520f)) }
         libraryQuery = ""
     }
@@ -142,7 +159,28 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
     /* ------------------------------ actions ------------------------------ */
 
     fun launch(key: String, bounds: Rect?) {
-        repo.launch(key, host.hostView(), bounds, store.value.look.openAnimation)
+        val go = { repo.launch(key, host.hostView(), bounds, store.value.look.openAnimation); Unit }
+        if (key in store.value.security.protectedApps) requireUnlock("Unlock ${repo.label(key)}", go) else go()
+    }
+
+    /** Runs [action] after PIN / biometric check (or right away if no PIN is set). */
+    fun requireUnlock(title: String, action: () -> Unit) {
+        val sec = store.value.security
+        if (sec.pinHash == null || dev.scyde.scycher.data.Security.recentlyUnlocked(sec)) { action(); return }
+        val askPin = { pin = PinRequest(title, action) }
+        if (sec.biometric && dev.scyde.scycher.data.Security.biometricAvailable(context)) host.authenticate(title, action, askPin)
+        else askPin()
+    }
+
+    fun setCustomIcon(key: String, path: String?) {
+        store.update { c -> c.copy(customIcons = if (path == null) c.customIcons - key else c.customIcons + (key to path)) }
+        scope.launch { kotlinx.coroutines.delay(300); repo.invalidate(key) }
+    }
+
+    fun chooseSwipeUpApp(key: String) {
+        appChooser = AppChooserRequest("Swipe up on ${repo.label(key)} opens…") { target ->
+            store.update { c -> c.copy(iconSwipeUp = if (target == null) c.iconSwipeUp - key else c.iconSwipeUp + (key to target)) }
+        }
     }
 
     fun runGesture(action: GestureAction, appKey: String?) {
@@ -157,6 +195,10 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
             GestureAction.EditMode -> editMode = true
             GestureAction.ScycherSettings -> openSettings()
             GestureAction.Screenshot -> SystemActions.screenshot(context)
+            GestureAction.Flashlight -> SystemActions.toggleTorch(context)
+            GestureAction.PowerMenu -> SystemActions.powerMenu(context)
+            GestureAction.SplitScreen -> SystemActions.splitScreen(context)
+            GestureAction.Widgets -> { editMode = true; widgetPicker = true }
             GestureAction.LaunchApp -> appKey?.let { launch(it, null) }
         }
     }

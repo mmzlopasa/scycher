@@ -43,6 +43,11 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Dock
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.SwipeUp
+import androidx.compose.material.icons.rounded.Category
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
@@ -190,6 +195,32 @@ private fun MenuCard(req: MenuRequest) {
                     MenuDivider()
                 }
                 MenuRow("Rename", Icons.Rounded.Edit) { close(); state.rename = RenameTarget.App(key) }
+                MenuDivider()
+                if (cfg.customIcons.containsKey(key)) {
+                    MenuRow("Reset Icon", Icons.Rounded.Image) { close(); state.setCustomIcon(key, null) }
+                } else {
+                    MenuRow("Change Icon…", Icons.Rounded.Image) { close(); state.host.pickIcon(key) }
+                }
+                MenuDivider()
+                val swipeTarget = cfg.iconSwipeUp[key]
+                MenuRow(
+                    if (swipeTarget != null) "Swipe Up: ${repo.label(swipeTarget)}" else "Swipe-Up Action…",
+                    Icons.Rounded.SwipeUp
+                ) { close(); state.chooseSwipeUpApp(key) }
+                MenuDivider()
+                MenuRow("Category…", Icons.Rounded.Category) { close(); state.categoryFor = key }
+                MenuDivider()
+                val locked = key in cfg.security.protectedApps
+                MenuRow(if (locked) "Unlock App" else "Lock App", if (locked) Icons.Rounded.LockOpen else Icons.Rounded.Lock) {
+                    close()
+                    if (cfg.security.pinHash == null) state.openSettings("security")
+                    else state.requireUnlock("Confirm") {
+                        state.store.update { c ->
+                            val set = if (locked) c.security.protectedApps - key else c.security.protectedApps + key
+                            c.copy(security = c.security.copy(protectedApps = set))
+                        }
+                    }
+                }
                 MenuDivider()
                 MenuRow("App Info", Icons.Rounded.Info) { close(); repo.appDetails(key) }
                 MenuDivider()

@@ -157,6 +157,22 @@ fun Modifier.itemGestures(
         }
 }
 
+/** Registers icons with a swipe-up action and smart stacks so home gestures leave them alone. */
+fun Modifier.swipeZone(item: HomeItem): Modifier = composed {
+    val state = LocalLauncher.current
+    val cfg = LocalConfig.current
+    val action = when {
+        item.type == ItemType.App && item.app != null -> cfg.iconSwipeUp[item.app]?.let { "app:$it" }
+        item.builtin == dev.scyde.scycher.data.BuiltinKind.Stack -> "stack"
+        else -> null
+    }
+    androidx.compose.runtime.DisposableEffect(item.id, action) {
+        onDispose { state.swipeZones.remove(item.id) }
+    }
+    if (action == null) this
+    else this.onGloballyPositioned { state.swipeZones[item.id] = it.boundsInRoot() to action }
+}
+
 /** Jiggle like iOS edit mode. */
 fun Modifier.jiggle(enabled: Boolean, seed: Long): Modifier = composed {
     if (!enabled) return@composed this

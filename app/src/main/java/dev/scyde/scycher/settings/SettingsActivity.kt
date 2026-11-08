@@ -100,6 +100,8 @@ fun SettingsRoot(activity: SettingsActivity) {
     val accent = cfg.look.accentColor.toColor()
     MaterialTheme(colorScheme = darkColorScheme(primary = accent, background = Bg, surface = Card)) {
         CompositionLocalProvider(LocalConfig provides cfg, LocalNav provides activity) {
+            var unlocked by remember { mutableStateOf(!cfg.security.lockSettings || cfg.security.pinHash == null || dev.scyde.scycher.data.Security.recentlyUnlocked(cfg.security)) }
+            if (!unlocked) { SettingsGate { unlocked = true }; return@CompositionLocalProvider }
             val top = activity.nav.lastOrNull()
             BackHandler(top != null) { activity.nav.removeAt(activity.nav.lastIndex) }
             AnimatedContent(
@@ -123,6 +125,8 @@ fun SettingsRoot(activity: SettingsActivity) {
                     "hidden" -> HiddenApps()
                     "backup" -> BackupSettings()
                     "about" -> AboutScreen()
+                    "security" -> SecuritySettings()
+                    "search" -> SearchSettings()
                     else -> MainScreen()
                 }
             }

@@ -45,6 +45,19 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shop
+import androidx.compose.material.icons.rounded.Calculate
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.SmartDisplay
+import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.produceState
+import dev.scyde.scycher.data.Calculator
+import dev.scyde.scycher.data.SettingsIndex
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -96,6 +109,8 @@ import dev.scyde.scycher.ui.home.itemGestures
 import dev.scyde.scycher.ui.home.labelStyle
 import dev.scyde.scycher.ui.home.rememberAppIcon
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
 import java.text.Normalizer
 
 private fun norm(s: String) = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
@@ -136,9 +151,10 @@ fun AppLibrary() {
 
     BackHandler(p > 0f) { state.closeLibrary() }
 
-    val visible = remember(apps, cfg.hiddenApps, cfg.customLabels, lc.sort) {
+    val visible = remember(apps, cfg.hiddenApps, cfg.customLabels, cfg.customCategories, lc.sort) {
         val list = apps.filter { it.key !in cfg.hiddenApps }
             .map { a -> cfg.customLabels[a.key]?.let { a.copy(label = it) } ?: a }
+            .map { a -> cfg.customCategories[a.key]?.let { a.copy(category = it) } ?: a }
         when (lc.sort) {
             LibrarySort.Alphabetical -> list.sortedBy { norm(it.label) }
             LibrarySort.MostUsed -> list.sortedByDescending { repo.usageCount(it.key) }
@@ -149,10 +165,13 @@ fun AppLibrary() {
         if (query.isBlank()) visible
         else visible.map { it to score(it.label, query) }.filter { it.second > 0 }.sortedByDescending { it.second }.map { it.first }
     }
-    val suggestions = remember(visible, cfg.recentApps) {
+    val suggestions = remember(visible, cfg.recentApps, lc.smartSuggestions, state.libraryFocus, p > 0.5f) {
         val recent = cfg.recentApps.mapNotNull { k -> visible.firstOrNull { it.key == k } }
-        (recent + visible.sortedByDescending { repo.usageCount(it.key) }).distinctBy { it.key }.take(lc.columns.coerceAtMost(8))
+        val smart = if (lc.smartSuggestions) visible.map { it to repo.hourlyScore(it.key) }.filter { it.second > 0.5f }
+            .sortedByDescending { it.second }.map { it.first } else emptyList()
+        (smart + recent + visible.sortedByDescending { repo.usageCount(it.key) }).distinctBy { it.key }.take(lc.columns.coerceAtMost(8))
     }
+    val hidden = remember(apps, cfg.hiddenApps) { apps.filter { it.key in cfg.hiddenApps } }
 
     LaunchedEffect(state.libraryFocus) {
         if (state.libraryFocus > 0) runCatching { focus.requestFocus(); keyboard?.show() }
@@ -246,6 +265,14 @@ fun AppLibrary() {
                 if (query.isNotEmpty()) Icon(
                     Icons.Rounded.Close, null, tint = Color.White.copy(alpha = 0.7f),
                     modifier = Modifier.size(20.dp).clickable { state.libraryQuery = "" }
+                ) else if (hidden.isNotEmpty()) Icon(
+                    if (state.showHiddenApps) Icons.Rounded.VisibilityOff else Icons.Rounded.Lock, "Hidden apps",
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(20.dp).clickable {
+                        if (state.showHiddenApps) state.showHiddenApps = false
+                        else if (cfg.security.lockHiddenApps) state.requireUnlock("Hidden apps") { state.showHiddenApps = true }
+                        else state.showHiddenApps = true
+                    }
                 )
             }
 
@@ -255,7 +282,9 @@ fun AppLibrary() {
                     try { ctx.startActivity(action.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Throwable) {}
                     state.closeLibrary()
                 }
+                state.showHiddenApps -> GridLibrary(hidden, emptyList(), content, header = "Hidden apps")
                 lc.style == LibraryStyle.List -> ListLibrary(visible, content)
+                lc.style == LibraryStyle.Tabs -> TabsLibrary(visible, if (lc.showSuggestions) suggestions else emptyList(), content)
                 lc.style == LibraryStyle.Categories -> CategoryLibrary(visible, suggestions, content)
                 else -> GridLibrary(visible, if (lc.showSuggestions) suggestions else emptyList(), content)
             }
@@ -275,7 +304,7 @@ private fun LibraryIcon(app: AppInfo, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun GridLibrary(apps: List<AppInfo>, suggestions: List<AppInfo>, modifier: Modifier) {
+private fun GridLibrary(apps: List<AppInfo>, suggestions: List<AppInfo>, modifier: Modifier, header: String? = null) {
     val lc = LocalConfig.current.library
     val gs = rememberLazyGridState()
     LazyVerticalGrid(
@@ -288,7 +317,52 @@ private fun GridLibrary(apps: List<AppInfo>, suggestions: List<AppInfo>, modifie
             items(suggestions, key = { "s" + it.key }) { LibraryIcon(it) }
             item(span = { GridItemSpan(maxLineSpan) }) { Header("All Apps") }
         }
+        if (header != null) item(span = { GridItemSpan(maxLineSpan) }) { Header(header) }
         items(apps, key = { it.key }) { LibraryIcon(it) }
+    }
+}
+
+/** Smart Launcher style: category tabs on top, apps of that category below. */
+@Composable
+private fun TabsLibrary(apps: List<AppInfo>, suggestions: List<AppInfo>, modifier: Modifier) {
+    val lc = LocalConfig.current.library
+    val cats = remember(apps) { apps.groupBy { it.category }.toList().sortedByDescending { it.second.size } }
+    val tabs = remember(cats, suggestions) {
+        buildList {
+            if (suggestions.isNotEmpty()) add("For you" to suggestions)
+            add("All" to apps)
+            addAll(cats)
+        }
+    }
+    var sel by remember { androidx.compose.runtime.mutableIntStateOf(if (suggestions.isNotEmpty()) 1 else 0) }
+    val current = tabs.getOrNull(sel) ?: tabs.first()
+    Column(modifier) {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            tabs.forEachIndexed { i, (name, list) ->
+                val on = i == sel
+                Row(
+                    Modifier.clip(CircleShape)
+                        .then(if (on) Modifier.background(Color.White) else Modifier.glass(CircleShape, SurfaceStyle.Glass, Color.White, 0.10f, true, 0.15f))
+                        .clickable { sel = i }.padding(horizontal = 16.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(name, color = if (on) Color.Black else Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.width(6.dp))
+                    Text(list.size.toString(), color = if (on) Color.Black.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.5f), fontSize = 13.sp)
+                }
+            }
+        }
+        androidx.compose.animation.AnimatedContent(current.first, label = "tab") { name ->
+            val list = tabs.firstOrNull { it.first == name }?.second ?: emptyList()
+            LazyVerticalGrid(
+                GridCells.Fixed(lc.columns), Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 40.dp),
+                verticalArrangement = Arrangement.spacedBy(22.dp),
+            ) { items(list, key = { it.key }) { LibraryIcon(it) } }
+        }
     }
 }
 
@@ -413,17 +487,88 @@ private fun CategoryLibrary(apps: List<AppInfo>, suggestions: List<AppInfo>, mod
 
 @Composable
 private fun SearchResults(results: List<AppInfo>, query: String, modifier: Modifier, onAction: (Intent) -> Unit) {
-    val lc = LocalConfig.current.library
+    val cfg = LocalConfig.current
+    val lc = cfg.library
+    val sc = cfg.search
+    val ctx = LocalContext.current
+    val state = LocalLauncher.current
+    val repo = ScycherApp.instance.apps
+    val calc = remember(query, sc.calculator) { if (sc.calculator && Calculator.looksLikeMath(query)) Calculator.evaluate(query) else null }
+    val settings = remember(query, sc.settingsResults) { if (sc.settingsResults) SettingsIndex.search(query) else emptyList() }
+    val allShortcuts by produceState<List<android.content.pm.ShortcutInfo>>(emptyList(), sc.shortcutResults) {
+        if (sc.shortcutResults) value = withContext(Dispatchers.IO) { repo.allShortcuts() }
+    }
+    val shortcuts = remember(query, allShortcuts) {
+        if (query.length < 2) emptyList()
+        else allShortcuts.filter { s -> score((s.shortLabel ?: s.longLabel ?: "").toString(), query) >= 40 }.take(6)
+    }
     LazyVerticalGrid(
         GridCells.Fixed(lc.columns), modifier.navigationBarsPadding(),
         contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 40.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
+        if (calc != null) item(span = { GridItemSpan(maxLineSpan) }) {
+            Row(
+                Modifier.fillMaxWidth().panelGlass(60f).clickable {
+                    ctx.getSystemService(android.content.ClipboardManager::class.java)
+                        ?.setPrimaryClip(android.content.ClipData.newPlainText("result", calc))
+                    android.widget.Toast.makeText(ctx, "Copied $calc", android.widget.Toast.LENGTH_SHORT).show()
+                }.padding(horizontal = 22.dp, vertical = 18.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Rounded.Calculate, null, tint = cfg.look.accentColor.toColor(), modifier = Modifier.size(26.dp))
+                Spacer(Modifier.width(16.dp))
+                Text(query.trim(), color = Color.White.copy(alpha = 0.6f), fontSize = 18.sp, modifier = Modifier.weight(1f))
+                Text("= $calc", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Light)
+            }
+        }
         items(results, key = { it.key }) { LibraryIcon(it) }
-        item(span = { GridItemSpan(maxLineSpan) }) {
+        if (shortcuts.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) { Header("Shortcuts") }
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Column(Modifier.fillMaxWidth().panelGlass(60f)) {
+                    shortcuts.forEachIndexed { i, sh ->
+                        val icon by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, sh.id) {
+                            value = withContext(Dispatchers.IO) { repo.shortcutIcon(sh) }
+                        }
+                        Row(
+                            Modifier.fillMaxWidth().clickable { repo.startShortcut(sh, null); state.closeLibrary() }
+                                .padding(horizontal = 18.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            icon?.let { androidx.compose.foundation.Image(it, null, Modifier.size(26.dp)) } ?: Spacer(Modifier.size(26.dp))
+                            Spacer(Modifier.width(14.dp))
+                            Text((sh.shortLabel ?: sh.longLabel ?: "").toString(), color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                            Text(repo.map.value.values.firstOrNull { it.pkg == sh.`package` }?.label ?: "", color = Color.White.copy(alpha = 0.5f), fontSize = 13.sp)
+                        }
+                        if (i < shortcuts.lastIndex) Box(Modifier.fillMaxWidth().height(0.6.dp).background(Color.White.copy(alpha = 0.12f)))
+                    }
+                }
+            }
+        }
+        if (settings.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) { Header("Settings") }
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                Column(Modifier.fillMaxWidth().panelGlass(60f)) {
+                    settings.forEachIndexed { i, st ->
+                        ActionRow(Icons.Rounded.Settings, st.label) { onAction(Intent(st.action)) }
+                        if (i < settings.lastIndex) Box(Modifier.fillMaxWidth().height(0.6.dp).background(Color.White.copy(alpha = 0.12f)))
+                    }
+                }
+            }
+        }
+        if (sc.showProviders) item(span = { GridItemSpan(maxLineSpan) }) {
             Column(Modifier.fillMaxWidth().panelGlass(60f)) {
-                ActionRow(Icons.Rounded.Language, "Search the web for “$query”") {
-                    onAction(Intent(Intent.ACTION_WEB_SEARCH).putExtra(SearchManager.QUERY, query))
+                ActionRow(Icons.Rounded.Language, "Search ${sc.engine.label} for “$query”") {
+                    onAction(Intent(Intent.ACTION_VIEW, Uri.parse(sc.engine.url + Uri.encode(query))))
+                }
+                Box(Modifier.fillMaxWidth().height(0.6.dp).background(Color.White.copy(alpha = 0.12f)))
+                ActionRow(Icons.Rounded.SmartDisplay, "Search YouTube") {
+                    onAction(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=" + Uri.encode(query))))
+                }
+                Box(Modifier.fillMaxWidth().height(0.6.dp).background(Color.White.copy(alpha = 0.12f)))
+                ActionRow(Icons.Rounded.Map, "Search Maps") {
+                    onAction(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(query))))
                 }
                 Box(Modifier.fillMaxWidth().height(0.6.dp).background(Color.White.copy(alpha = 0.12f)))
                 ActionRow(Icons.Rounded.Shop, "Search Play Store") {

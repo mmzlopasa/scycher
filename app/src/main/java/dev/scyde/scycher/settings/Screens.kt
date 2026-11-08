@@ -45,6 +45,8 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Swipe
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -142,6 +144,10 @@ fun MainScreen() {
             NavRow("Appearance & wallpaper", Icons.Rounded.Palette, Color(0xFFFF453A)) { nav.nav += "appearance" }
         }
         Group {
+            NavRow("Security & app lock", Icons.Rounded.Lock, Color(0xFF30D158)) { nav.nav += "security" }
+            Divider()
+            NavRow("Search", Icons.Rounded.Search, Color(0xFF0A84FF)) { nav.nav += "search" }
+            Divider()
             NavRow("Hidden apps", Icons.Rounded.VisibilityOff, Color(0xFF8E8E93)) { nav.nav += "hidden" }
             Divider()
             val notif = remember(tick) { ScycherNotificationListener.isEnabled(ctx) }
@@ -310,6 +316,8 @@ fun HomeGestureSettings() {
             GestureRow("Two-finger swipe up", g.twoFingerUp, g.twoFingerUpApp, { a -> set { it.copy(twoFingerUp = a) } }) { picking = "twoFingerUp" }
             Divider()
             GestureRow("Pinch in", g.pinchIn, g.pinchInApp, { a -> set { it.copy(pinchIn = a) } }) { picking = "pinchIn" }
+            Divider()
+            GestureRow("Pinch out", g.pinchOut, g.pinchOutApp, { a -> set { it.copy(pinchOut = a) } }) { picking = "pinchOut" }
         }
         Group {
             SwitchRow("Haptic feedback", g.haptics) { v -> set { it.copy(haptics = v) } }
@@ -324,6 +332,7 @@ fun HomeGestureSettings() {
                     "doubleTap" -> it.copy(doubleTapApp = key)
                     "twoFingerDown" -> it.copy(twoFingerDownApp = key)
                     "twoFingerUp" -> it.copy(twoFingerUpApp = key)
+                    "pinchOut" -> it.copy(pinchOutApp = key)
                     else -> it.copy(pinchInApp = key)
                 }
             }
@@ -657,6 +666,8 @@ fun LibrarySettings() {
             Divider()
             SwitchRow("Suggestions row", l.showSuggestions) { v -> set { it.copy(showSuggestions = v) } }
             Divider()
+            SwitchRow("Smart suggestions", l.smartSuggestions, "Learns which apps you use at this time of day") { v -> set { it.copy(smartSuggestions = v) } }
+            Divider()
             SwitchRow("Open keyboard automatically", l.autoKeyboard) { v -> set { it.copy(autoKeyboard = v) } }
             Divider()
             PercentSlider("Background dim", l.dim) { v -> set { it.copy(dim = v) } }
@@ -713,6 +724,13 @@ fun AppearanceSettings() {
             PercentSlider("Dim wallpaper", l.wallpaperDim, 0f..0.8f) { v -> set { it.copy(wallpaperDim = v) } }
             Divider()
             SwitchRow("Parallax", l.parallax, "Wallpaper glides as you switch pages") { v -> set { it.copy(parallax = v) } }
+            Divider()
+            PercentSlider("Blur wallpaper", l.wallpaperBlur) { v -> set { it.copy(wallpaperBlur = v) } }
+            Divider()
+            PercentSlider("Vignette", l.vignette, 0f..0.9f) { v -> set { it.copy(vignette = v) } }
+        }
+        Group("Ambient theme", footer = "Accent, dock tint and widget colors are picked from your wallpaper automatically and change with it.") {
+            SwitchRow("Adaptive colors", l.adaptiveColors) { v -> set { it.copy(adaptiveColors = v) } }
         }
         Group("Glass") {
             IntSlider("Blur radius", l.glassBlurRadius, 0..60) { v -> set { it.copy(glassBlurRadius = v) } }
@@ -729,7 +747,11 @@ fun AppearanceSettings() {
             Divider()
             SliderRow("Animation speed", l.animationSpeed, 0.5f..2f, format = { "%.1f×".format(it) }) { v -> set { it.copy(animationSpeed = v) } }
         }
-        Group("Status bar") {
+        Group("System") {
+            ChoiceRow("Home screen orientation", dev.scyde.scycher.data.OrientationMode.entries.toList(), l.orientation) { v -> set { it.copy(orientation = v) } }
+            Divider()
+            SwitchRow("Hide navigation bar", l.hideNavBar, "Full immersive home screen – swipe from the edge to reveal") { v -> set { it.copy(hideNavBar = v) } }
+            Divider()
             SwitchRow("Hide status bar", l.hideStatusBar) { v -> set { it.copy(hideStatusBar = v) } }
             Divider()
             SwitchRow("Dark status icons", l.darkStatusIcons, "For bright wallpapers") { v -> set { it.copy(darkStatusIcons = v) } }

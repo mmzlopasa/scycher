@@ -43,6 +43,54 @@ object SystemActions {
         if (Build.VERSION.SDK_INT < 28 || !ScycherGestureService.global(AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT)) needService(context)
     }
 
+    fun powerMenu(context: Context) {
+        if (!ScycherGestureService.global(AccessibilityService.GLOBAL_ACTION_POWER_DIALOG)) needService(context)
+    }
+
+    fun splitScreen(context: Context) {
+        if (!ScycherGestureService.global(AccessibilityService.GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN)) needService(context)
+    }
+
+    /* --------------------------- flashlight --------------------------- */
+
+    val torchOn = kotlinx.coroutines.flow.MutableStateFlow(false)
+    private var torchCallbackRegistered = false
+
+    private fun torchCamera(cm: android.hardware.camera2.CameraManager): String? = try {
+        cm.cameraIdList.firstOrNull { id ->
+            cm.getCameraCharacteristics(id).get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
+        }
+    } catch (_: Throwable) { null }
+
+    fun watchTorch(context: Context) {
+        if (torchCallbackRegistered) return
+        val cm = context.getSystemService(android.hardware.camera2.CameraManager::class.java) ?: return
+        try {
+            cm.registerTorchCallback(object : android.hardware.camera2.CameraManager.TorchCallback() {
+                override fun onTorchModeChanged(cameraId: String, enabled: Boolean) { torchOn.value = enabled }
+            }, android.os.Handler(android.os.Looper.getMainLooper()))
+            torchCallbackRegistered = true
+        } catch (_: Throwable) {}
+    }
+
+    fun hasTorch(context: Context): Boolean =
+        context.getSystemService(android.hardware.camera2.CameraManager::class.java)?.let { torchCamera(it) } != null
+
+    fun toggleTorch(context: Context) {
+        val cm = context.getSystemService(android.hardware.camera2.CameraManager::class.java) ?: return
+        watchTorch(context)
+        val id = torchCamera(cm)
+        if (id == null) { Toast.makeText(context, "This device has no flashlight", Toast.LENGTH_SHORT).show(); return }
+        try { cm.setTorchMode(id, !torchOn.value) } catch (_: Throwable) {}
+    }
+
+    fun openPanel(context: Context, action: String, fallback: String) {
+        val i = Intent(if (Build.VERSION.SDK_INT >= 29) action else fallback).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try { context.startActivity(i) } catch (_: Throwable) {
+            runCatching { context.startActivity(Intent(fallback).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        }
+    }
+
     private fun needService(context: Context) {
         Toast.makeText(context, "Enable “Scycher Gestures” in Accessibility to use this action", Toast.LENGTH_LONG).show()
         openAccessibilitySettings(context)

@@ -106,6 +106,19 @@ object IconRenderer {
         return bmp
     }
 
+    /** A user picked image as icon: center-cropped into the current shape. */
+    fun renderImage(src: Bitmap, size: Int, cfg: IconConfig): Bitmap {
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val s = size.toFloat()
+        val shape = if (cfg.shape == IconShape.System) IconShape.Squircle else cfg.shape
+        c.clipPath(IconShapes.path(shape, s, s))
+        val scale = maxOf(s / src.width, s / src.height)
+        val w = src.width * scale; val h = src.height * scale
+        c.drawBitmap(src, null, android.graphics.RectF((s - w) / 2, (s - h) / 2, (s + w) / 2, (s + h) / 2), bgPaint.apply { shader = null; color = 0xFFFFFFFF.toInt() })
+        return bmp
+    }
+
     private fun monochrome(a: AdaptiveIconDrawable): Drawable? =
         if (Build.VERSION.SDK_INT >= 33) a.monochrome?.mutate() else null
 

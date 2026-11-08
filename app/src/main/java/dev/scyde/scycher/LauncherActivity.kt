@@ -48,6 +48,25 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
     private var pendingSize = 1 to 1
     private var pendingProvider: AppWidgetProviderInfo? = null
     private var pendingPhotoItem = -1L
+    private var pendingIconKey: String? = null
+
+    private val pickIconImage = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
+        val key = pendingIconKey
+        if (uri == null || key == null) return@registerForActivityResult
+        lifecycleScope.launch {
+            val f = withContext(Dispatchers.IO) {
+                runCatching {
+                    val dir = File(filesDir, "icons").apply { mkdirs() }
+                    val out = File(dir, "${key.hashCode().toUInt()}_${System.currentTimeMillis()}.img")
+                    contentResolver.openInputStream(uri)?.use { i -> out.outputStream().use { i.copyTo(it) } }
+                    out
+                }.getOrNull()
+            }
+            f?.let { state.setCustomIcon(key, it.path) }
+        }
+    }
+
+    private val calendarPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { state.resumeTick++ }
 
     private val pickWallpaper = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
         uri ?: return@registerForActivityResult
@@ -121,14 +140,22 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
             }
         }
         lifecycleScope.launch {
-            app.store.config.map { it.look.hideStatusBar to it.look.darkStatusIcons }.distinctUntilChanged().collect { (hide, dark) ->
+            app.store.config.map { listOf(it.look.hideStatusBar, it.look.darkStatusIcons, it.look.hideNavBar) }.distinctUntilChanged().collect { (hide, dark, hideNav) ->
                 val c = WindowInsetsControllerCompat(window, window.decorView)
                 c.isAppearanceLightStatusBars = dark
                 c.isAppearanceLightNavigationBars = dark
-                if (hide) {
-                    c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                    c.hide(WindowInsetsCompat.Type.statusBars())
-                } else c.show(WindowInsetsCompat.Type.statusBars())
+                c.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                if (hide) c.hide(WindowInsetsCompat.Type.statusBars()) else c.show(WindowInsetsCompat.Type.statusBars())
+                if (hideNav) c.hide(WindowInsetsCompat.Type.navigationBars()) else c.show(WindowInsetsCompat.Type.navigationBars())
+            }
+        }
+        lifecycleScope.launch {
+            app.store.config.map { it.look.orientation }.distinctUntilChanged().collect { o ->
+                requestedOrientation = when (o) {
+                    dev.scyde.scycher.data.OrientationMode.Auto -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    dev.scyde.scycher.data.OrientationMode.Landscape -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    dev.scyde.scycher.data.OrientationMode.Portrait -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                }
             }
         }
     }
@@ -143,6 +170,7 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
     override fun onStart() {
         super.onStart()
         app.widgets.start()
+        dev.scyde.scycher.gestures.SystemActions.watchTorch(this)
     }
 
     override fun onResume() {
@@ -187,6 +215,18 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
     override fun pickPhoto(itemId: Long) {
         pendingPhotoItem = itemId
         pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+
+    override fun pickIcon(appKey: String) {
+        pendingIconKey = appKey
+        pickIconImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+
+    override fun authenticate(title: String, onSuccess: () -> Unit, onFallback: () -> Unit) =
+        dev.scyde.scycher.data.Security.authenticate(this, title, onSuccess, onFallback)
+
+    override fun requestCalendarPermission() {
+        calendarPermission.launch(android.Manifest.permission.READ_CALENDAR)
     }
 
     override fun requestDefaultLauncher() {

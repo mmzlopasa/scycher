@@ -38,6 +38,9 @@ data class WallpaperState(
     /** True if the system wallpaper is very bright (dark text/icons preferred). */
     val light: Boolean = false,
     val token: Int = 0,
+    /** Dominant wallpaper color and a vivid accent derived from it (Ambient theme). */
+    val dominant: Long? = null,
+    val accent: Long? = null,
 )
 
 /**
@@ -69,13 +72,61 @@ class WallpaperController(private val context: Context, private val store: Confi
         val light = isLightWallpaper()
         if (mode == WallpaperMode.Scycher && file.exists()) {
             val bmp = decodeScaled(file) ?: return@launch
-            _state.value = WallpaperState(bmp.asImageBitmap(), blur(bmp, radius)?.asImageBitmap(), light, token)
+            val (dom, acc) = palette(bmp)
+            _state.value = WallpaperState(bmp.asImageBitmap(), blur(bmp, radius)?.asImageBitmap(), light, token, dom, acc)
         } else {
             val sys = readSystemWallpaper()
-            _state.value = WallpaperState(null, sys?.let { blur(it, radius)?.asImageBitmap() }, light, token)
+            val (dom, acc) = sys?.let { palette(it) } ?: systemPalette()
+            _state.value = WallpaperState(null, sys?.let { blur(it, radius)?.asImageBitmap() }, light, token, dom, acc)
             sys?.recycle()
         }
     }
+
+    /** Works even when pixels can't be read: Android exposes the wallpaper's main colors. */
+    private fun systemPalette(): Pair<Long?, Long?> = try {
+        if (Build.VERSION.SDK_INT >= 27) {
+            val c = wm.getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
+            val cols = listOfNotNull(c?.primaryColor, c?.secondaryColor, c?.tertiaryColor).map { it.toArgb() }
+            if (cols.isEmpty()) null to null else {
+                val dom = cols.first()
+                val acc = cols.maxByOrNull { saturation(it) } ?: dom
+                dom.toLong() and 0xFFFFFFFFL to (vivid(acc).toLong() and 0xFFFFFFFFL)
+            }
+        } else null to null
+    } catch (_: Throwable) { null to null }
+
+    private fun saturation(c: Int): Float { val hsv = FloatArray(3); android.graphics.Color.colorToHSV(c, hsv); return hsv[1] * hsv[2] }
+
+    private fun vivid(c: Int): Int {
+        val hsv = FloatArray(3); android.graphics.Color.colorToHSV(c, hsv)
+        hsv[1] = hsv[1].coerceIn(0.35f, 0.75f); hsv[2] = hsv[2].coerceIn(0.85f, 1f)
+        return android.graphics.Color.HSVToColor(hsv)
+    }
+
+    /** Average color + the most saturated hue bucket of a bitmap. */
+    private fun palette(b: Bitmap): Pair<Long?, Long?> = try {
+        val small = Bitmap.createScaledBitmap(b, 48, 48, true)
+        val px = IntArray(48 * 48); small.getPixels(px, 0, 48, 0, 0, 48, 48)
+        if (small != b) small.recycle()
+        var r = 0L; var g = 0L; var bl = 0L
+        val buckets = FloatArray(12); val bucketColor = IntArray(12)
+        val hsv = FloatArray(3)
+        for (p in px) {
+            r += (p shr 16) and 0xFF; g += (p shr 8) and 0xFF; bl += p and 0xFF
+            android.graphics.Color.colorToHSV(p, hsv)
+            val w = hsv[1] * hsv[2]
+            if (w > 0.15f) {
+                val i = ((hsv[0] / 30f).toInt()).coerceIn(0, 11)
+                buckets[i] += w
+                if (saturation(bucketColor[i]) < w) bucketColor[i] = p
+            }
+        }
+        val n = px.size
+        val avg = (0xFF shl 24) or ((r / n).toInt() shl 16) or ((g / n).toInt() shl 8) or (bl / n).toInt()
+        val best = buckets.indices.maxByOrNull { buckets[it] } ?: 0
+        val acc = if (buckets[best] > 0f) vivid(bucketColor[best]) else vivid(avg)
+        (avg.toLong() and 0xFFFFFFFFL) to (acc.toLong() and 0xFFFFFFFFL)
+    } catch (_: Throwable) { null to null }
 
     private fun isLightWallpaper(): Boolean = try {
         if (Build.VERSION.SDK_INT >= 27) {

@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import dev.scyde.scycher.data.WallpaperMode
 import dev.scyde.scycher.settings.SettingsActivity
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -86,6 +87,56 @@ class LauncherScreenshotTest {
         }
         settle(1000)
         shot("06_menu")
+        rule.runOnUiThread { state.menu = null }
+        settle(800)
+
+        // --- Smart Launcher style features ---
+        rule.runOnUiThread {
+            app.store.update { it.copy(library = it.library.copy(style = dev.scyde.scycher.data.LibraryStyle.Tabs)) }
+            state.openLibrary()
+        }
+        settle(1500)
+        shot("10_library_tabs")
+        rule.runOnUiThread { state.libraryQuery = "12*7+3" }
+        settle(800)
+        shot("11_search_calculator")
+        rule.runOnUiThread { state.libraryQuery = "blue" }
+        settle(800)
+        shot("12_search_settings")
+        rule.runOnUiThread { state.closeLibrary() }
+        settle(1200)
+
+        val id = { app.store.newId() }
+        rule.runOnUiThread {
+            app.store.updateLayout { l ->
+                val W = dev.scyde.scycher.data.ItemType.Widget
+                val K = dev.scyde.scycher.data.BuiltinKind
+                l.copy(pages = l.pages.take(1) + dev.scyde.scycher.data.HomePage(id(), listOf(
+                    dev.scyde.scycher.data.HomeItem(id(), W, 0, 0, 4, 2, builtin = K.Stack),
+                    dev.scyde.scycher.data.HomeItem(id(), W, 4, 0, 2, 2, builtin = K.ClockDigital, extra = mapOf("variant" to "Stacked")),
+                    dev.scyde.scycher.data.HomeItem(id(), W, 0, 2, 4, 2, builtin = K.Agenda),
+                    dev.scyde.scycher.data.HomeItem(id(), W, 4, 2, 2, 2, builtin = K.ClockDigital, extra = mapOf("variant" to "Minimal")),
+                    dev.scyde.scycher.data.HomeItem(id(), W, 0, 4, 4, 1, builtin = K.Toggles),
+                )))
+            }
+        }
+        settle(800)
+        rule.runOnUiThread { state.scope.launch { state.pager.scrollToPage(1) } }
+        settle(1500)
+        shot("13_new_widgets")
+
+        rule.runOnUiThread {
+            app.store.update { it.copy(look = it.look.copy(adaptiveColors = true, vignette = 0.5f)) }
+        }
+        settle(1500)
+        shot("14_adaptive_colors")
+
+        rule.runOnUiThread {
+            app.store.update { it.copy(security = it.security.copy(pinHash = dev.scyde.scycher.data.Security.hash("1234"), biometric = false)) }
+            state.pin = dev.scyde.scycher.ui.PinRequest("Unlock Chrome") {}
+        }
+        settle(1200)
+        shot("15_pin")
     }
 }
 
@@ -105,5 +156,11 @@ class SettingsScreenshotTest {
         rule.runOnUiThread { rule.activity.nav.clear(); rule.activity.nav += "dock" }
         rule.mainClock.advanceTimeBy(800); rule.waitForIdle()
         save(capture(rule.activity), "09_dock")
+        rule.runOnUiThread { rule.activity.nav.clear(); rule.activity.nav += "security" }
+        rule.mainClock.advanceTimeBy(800); rule.waitForIdle()
+        save(capture(rule.activity), "16_settings_security")
+        rule.runOnUiThread { rule.activity.nav.clear(); rule.activity.nav += "appearance" }
+        rule.mainClock.advanceTimeBy(800); rule.waitForIdle()
+        save(capture(rule.activity), "17_settings_appearance")
     }
 }

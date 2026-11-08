@@ -23,7 +23,43 @@ data class LauncherConfig(
     val customLabels: Map<String, String> = emptyMap(),
     val layout: HomeLayout = HomeLayout(),
     val recentApps: List<String> = emptyList(),
+    /** Per-app icon replaced by an image (app key -> file path). */
+    val customIcons: Map<String, String> = emptyMap(),
+    /** Swipe up on an app icon opens another app (app key -> app key). */
+    val iconSwipeUp: Map<String, String> = emptyMap(),
+    /** User-assigned App Library categories (app key -> category). */
+    val customCategories: Map<String, String> = emptyMap(),
+    val security: SecurityConfig = SecurityConfig(),
+    val search: SearchConfig = SearchConfig(),
 )
+
+@Serializable
+data class SecurityConfig(
+    val pinHash: String? = null,
+    val biometric: Boolean = true,
+    val protectedApps: Set<String> = emptySet(),
+    val lockHiddenApps: Boolean = true,
+    val lockSettings: Boolean = false,
+    val relockSeconds: Int = 30,
+)
+
+@Serializable
+data class SearchConfig(
+    val calculator: Boolean = true,
+    val settingsResults: Boolean = true,
+    val shortcutResults: Boolean = true,
+    val engine: SearchEngine = SearchEngine.Google,
+    val showProviders: Boolean = true,
+)
+
+enum class SearchEngine(val label: String, val url: String) {
+    Google("Google", "https://www.google.com/search?q="),
+    DuckDuckGo("DuckDuckGo", "https://duckduckgo.com/?q="),
+    Bing("Bing", "https://www.bing.com/search?q="),
+    Brave("Brave", "https://search.brave.com/search?q="),
+    Ecosia("Ecosia", "https://www.ecosia.org/search?q="),
+    Perplexity("Perplexity", "https://www.perplexity.ai/search?q="),
+}
 
 @Serializable
 data class HomeConfig(
@@ -124,9 +160,11 @@ data class LibraryConfig(
     val autoKeyboard: Boolean = false,
     val showSuggestions: Boolean = true,
     val sort: LibrarySort = LibrarySort.Alphabetical,
+    /** Suggestions learn which apps you open at this time of day. */
+    val smartSuggestions: Boolean = true,
 )
 
-enum class LibraryStyle { Grid, Categories, List }
+enum class LibraryStyle { Grid, Tabs, Categories, List }
 enum class LibrarySort { Alphabetical, MostUsed, InstallDate }
 
 @Serializable
@@ -137,6 +175,8 @@ data class GestureConfig(
     val twoFingerDown: GestureAction = GestureAction.QuickSettings,
     val twoFingerUp: GestureAction = GestureAction.Search,
     val pinchIn: GestureAction = GestureAction.EditMode,
+    val pinchOut: GestureAction = GestureAction.OpenLibrary,
+    val pinchOutApp: String? = null,
     val swipeUpApp: String? = null,
     val swipeDownApp: String? = null,
     val doubleTapApp: String? = null,
@@ -157,6 +197,10 @@ enum class GestureAction(val label: String) {
     EditMode("Edit home screen"),
     ScycherSettings("Scycher settings"),
     Screenshot("Screenshot"),
+    Flashlight("Flashlight"),
+    PowerMenu("Power menu"),
+    SplitScreen("Split screen"),
+    Widgets("Add widget"),
     LaunchApp("Open an app"),
 }
 
@@ -173,7 +217,15 @@ data class LookConfig(
     val glassBlurRadius: Int = 24,
     val glassSaturation: Float = 1.35f,
     val openAnimation: OpenAnimation = OpenAnimation.ScaleUp,
+    /** Ambient theme: accent, dock and widget colors follow the wallpaper. */
+    val adaptiveColors: Boolean = false,
+    val wallpaperBlur: Float = 0f,
+    val vignette: Float = 0f,
+    val hideNavBar: Boolean = false,
+    val orientation: OrientationMode = OrientationMode.Auto,
 )
+
+enum class OrientationMode { Auto, Landscape, Portrait }
 
 enum class FontChoice(val family: String?) {
     System(null), Light("sans-serif-light"), Medium("sans-serif-medium"), Condensed("sans-serif-condensed"),
@@ -229,6 +281,9 @@ enum class BuiltinKind(val label: String, val sizes: List<Pair<Int, Int>>) {
     Photo("Photo", listOf(2 to 2, 4 to 2, 4 to 4)),
     Search("Search", listOf(4 to 1, 6 to 1)),
     Greeting("Greeting", listOf(4 to 1, 4 to 2)),
+    Stack("Smart stack", listOf(2 to 2, 4 to 2, 4 to 4)),
+    Agenda("Up next", listOf(4 to 2, 2 to 2, 4 to 4)),
+    Toggles("Quick toggles", listOf(4 to 1, 2 to 2, 4 to 2)),
 }
 
 @Serializable

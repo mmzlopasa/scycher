@@ -155,6 +155,12 @@ class AppRepository(private val context: Context, private val store: ConfigStore
         preload(_apps.value)
     }
 
+    /** Re-render a single icon (e.g. after picking a custom image). */
+    fun invalidate(key: String) {
+        synchronized(cache) { cache.remove(key) }
+        _iconGen.value++
+    }
+
     fun cached(key: String): ImageBitmap? = synchronized(cache) { cache.get(key) }
 
     suspend fun icon(key: String): ImageBitmap? = cached(key) ?: withContext(Dispatchers.IO) { renderIcon(key) }
@@ -171,6 +177,13 @@ class AppRepository(private val context: Context, private val store: ConfigStore
         }
         val dpi = context.resources.displayMetrics.densityDpi
         val bmp: Bitmap = try {
+            val custom = cfg.customIcons[key]?.let { path -> runCatching { android.graphics.BitmapFactory.decodeFile(path) }.getOrNull() }
+            if (custom != null) {
+                val r = IconRenderer.renderImage(custom, sizePx, cfg.icons)
+                custom.recycle()
+                r.prepareToDraw()
+                return r.asImageBitmap().also { synchronized(cache) { cache.put(key, it) } }
+            }
             val packed = iconPack?.icon(info.componentName.flattenToString(), dpi)
             if (packed != null) {
                 Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888).also {
@@ -229,13 +242,32 @@ class AppRepository(private val context: Context, private val store: ConfigStore
     }
 
     private fun recordLaunch(key: String) {
-        usage.edit().putInt(key, usage.getInt(key, 0) + 1).apply()
+        val bucket = "h" + (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) / 2) + "|" + key
+        usage.edit().putInt(key, usage.getInt(key, 0) + 1).putInt(bucket, usage.getInt(bucket, 0) + 1).apply()
         store.update { c ->
             c.copy(recentApps = (listOf(key) + c.recentApps.filter { it != key }).take(8))
         }
     }
 
     fun usageCount(key: String) = usage.getInt(key, 0)
+
+    /** How likely the app is right now: launches in this 2-hour window (neighbours count half). */
+    fun hourlyScore(key: String): Float {
+        val b = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY) / 2
+        fun at(i: Int) = usage.getInt("h" + ((i + 12) % 12) + "|" + key, 0)
+        return at(b) * 2f + (at(b - 1) + at(b + 1)) * 0.75f + usage.getInt(key, 0) * 0.05f
+    }
+
+    /** Every app shortcut (for search). */
+    fun allShortcuts(): List<ShortcutInfo> {
+        if (!hasShortcutPermission()) return emptyList()
+        return try {
+            val q = LauncherApps.ShortcutQuery().setQueryFlags(
+                LauncherApps.ShortcutQuery.FLAG_MATCH_DYNAMIC or LauncherApps.ShortcutQuery.FLAG_MATCH_MANIFEST or LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED
+            )
+            userManager.userProfiles.flatMap { u -> runCatching { launcherApps.getShortcuts(q, u) ?: emptyList() }.getOrDefault(emptyList()) }
+        } catch (_: Throwable) { emptyList() }
+    }
 
     fun appDetails(key: String) {
         val app = _map.value[key] ?: return

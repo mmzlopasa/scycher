@@ -256,7 +256,28 @@ fun WidgetSettingsSheet() {
                         }
                     }
                 }
+                if (kind == BuiltinKind.ClockDigital) {
+                    SectionTitle("Clock style")
+                    Box(Modifier.padding(horizontal = 16.dp)) {
+                        Chips(listOf("Classic", "Stacked", "Minimal"), item.extra["variant"] ?: "Classic", { it }) { put("variant", it) }
+                    }
+                }
                 when (kind) {
+                    BuiltinKind.Stack -> {
+                        SectionTitle("Widgets in this stack (tap to add/remove)")
+                        val selected = stackKinds(item)
+                        Box(Modifier.padding(horizontal = 16.dp)) {
+                            Chips<BuiltinKind?>(Stackable, null, { k -> (if (k in selected) "✓ " else "") + (k?.label ?: "") }) { k ->
+                                if (k == null) return@Chips
+                                val next = if (k in selected) selected - k else selected + k
+                                put("kinds", next.ifEmpty { listOf(BuiltinKind.ClockDigital) }.joinToString(",") { it.name })
+                            }
+                        }
+                        SectionTitle("Smart rotate")
+                        Box(Modifier.padding(horizontal = 16.dp)) {
+                            Chips(listOf("On", "Off"), if (item.extra["rotate"] == "false") "Off" else "On", { it }) { put("rotate", if (it == "On") null else "false") }
+                        }
+                    }
                     BuiltinKind.Note -> {
                         SectionTitle("Title")
                         Field(item.extra["title"] ?: "Note") { put("title", it) }
