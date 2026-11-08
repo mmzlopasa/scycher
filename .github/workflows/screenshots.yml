@@ -30,8 +30,7 @@ jobs:
       - name: Publish screenshots branch
         if: always()
         run: |
-          [ -d app/build/shots ] || exit 0
-          mkdir /tmp/shots && cp -r app/build/shots/. /tmp/shots/
+          mkdir -p /tmp/shots app/build/shots && cp -r app/build/shots/. /tmp/shots/
           cp -r app/build/test-results /tmp/shots/test-results 2>/dev/null || true
           cd /tmp/shots
           git init -q -b screenshots

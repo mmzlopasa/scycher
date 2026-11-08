@@ -24,6 +24,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Restore signing key
+        id: key
         env:
           KEYSTORE_B64: ${{ secrets.SCYCHER_KEYSTORE_B64 }}
           KEYSTORE_PASSWORD: ${{ secrets.SCYCHER_KEYSTORE_PASSWORD }}
@@ -36,6 +37,7 @@ jobs:
               echo "keyAlias=scycher"
               echo "keyPassword=$KEYSTORE_PASSWORD"
             } > keystore.properties
+            echo "signed=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::No signing key secret – APK will be debug-signed"
           fi
@@ -58,7 +60,8 @@ jobs:
           path: Scycher-*.apk
 
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/v')
+        # Only publish properly signed builds so updates install over each other
+        if: startsWith(github.ref, 'refs/tags/v') && steps.key.outputs.signed == 'true'
         uses: softprops/action-gh-release@v2
         with:
           files: Scycher-*.apk
