@@ -134,7 +134,8 @@ fun WidgetSurface(item: HomeItem, modifier: Modifier = Modifier, autoBrush: Brus
     val w = LocalConfig.current.widgets
     val styleName = item.extra["style"] ?: defaultStyleFor(item.builtin)
     val tint = item.extra["tint"]?.toLongOrNull()?.toColor() ?: w.tintColor.toColor()
-    val shape = remember(w.cornerRadiusDp) { IconShapes.continuousRect(w.cornerRadiusDp * 3f) }
+    val dens = androidx.compose.ui.platform.LocalDensity.current.density
+    val shape = remember(w.cornerRadiusDp, dens) { IconShapes.continuousRect(w.cornerRadiusDp * dens) }
     val base = modifier.fillMaxSize()
     val surf = if (styleName == "Auto" && autoBrush != null) {
         base.clip(shape).background(autoBrush)
@@ -398,7 +399,7 @@ private fun CalendarWidget(item: HomeItem, modifier: Modifier) {
                         T(today.dayOfWeek.getDisplayName(JTextStyle.FULL, Locale.getDefault()).uppercase(), (13 * u).sp, Color(0xFFFF453A), FontWeight.Bold)
                         T(today.dayOfMonth.toString(), (52 * u).sp, c.text, FontWeight.Light, lineHeight = (56 * u).sp)
                         Spacer(Modifier.weight(1f))
-                        T(today.month.getDisplayName(JTextStyle.FULL, Locale.getDefault()) + " " + today.year, (13 * u).sp, c.secondary, FontWeight.Medium)
+                        T(today.month.getDisplayName(JTextStyle.FULL, Locale.getDefault()), (13 * u).sp, c.secondary, FontWeight.Medium)
                     }
                     Spacer(Modifier.width((10 * u).dp))
                 }
@@ -651,7 +652,8 @@ fun SystemWidget(item: HomeItem, modifier: Modifier, preview: Boolean) {
     val app = ScycherApp.instance
     val state = LocalLauncher.current
     val w = LocalConfig.current.widgets
-    val shape = remember(w.cornerRadiusDp) { IconShapes.continuousRect(w.cornerRadiusDp * 3f) }
+    val dens = androidx.compose.ui.platform.LocalDensity.current.density
+    val shape = remember(w.cornerRadiusDp, dens) { IconShapes.continuousRect(w.cornerRadiusDp * dens) }
     if (preview) {
         val label = remember(item.widgetId) { app.widgets.info(item.widgetId)?.loadLabel(app.packageManager) ?: "Widget" }
         Box(modifier.fillMaxSize().glass(shape, SurfaceStyle.Glass, Color(0xFF1C1C24), 0.4f, true), contentAlignment = Alignment.Center) {

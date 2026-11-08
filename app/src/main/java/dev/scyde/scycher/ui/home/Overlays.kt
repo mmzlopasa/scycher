@@ -430,7 +430,7 @@ fun Onboarding() {
     val accent = cfg.look.accentColor.toColor()
     Box(
         Modifier.fillMaxSize()
-            .drawBehind { drawBlurBackdrop(wp, geo, 1f, 0.35f, filter) }
+            .drawBehind { drawBlurBackdrop(wp, geo, 1f, 0.75f, filter) }
             .pointerInput(Unit) { detectTapGestures { } },
         contentAlignment = Alignment.Center
     ) {

@@ -84,19 +84,19 @@ object IconShapes {
             val r = radius.coerceAtMost(minOf(size.width, size.height) / 2f)
             val p = Path()
             val w = size.width; val h = size.height
-            // Smooth (G2-ish) corners using cubic curves with 1.28 extension like iOS
-            val k = 1.28f * r
-            val c = 0.55f * r
-            val ex = k.coerceAtMost(w / 2); val ey = k.coerceAtMost(h / 2)
+            // Smooth "continuous" corners: the curve starts earlier than a circular arc
+            // and its control points sit close to the corner, like iOS squircle corners.
+            val ex = (1.28f * r).coerceAtMost(w / 2); val ey = (1.28f * r).coerceAtMost(h / 2)
+            val kx = ex * 0.72f; val ky = ey * 0.72f
             p.moveTo(ex, 0f)
             p.lineTo(w - ex, 0f)
-            p.cubicTo(w - ex + c, 0f, w, ey - c, w, ey)
+            p.cubicTo(w - ex + kx, 0f, w, ey - ky, w, ey)
             p.lineTo(w, h - ey)
-            p.cubicTo(w, h - ey + c, w - ex + c, h, w - ex, h)
+            p.cubicTo(w, h - ey + ky, w - ex + kx, h, w - ex, h)
             p.lineTo(ex, h)
-            p.cubicTo(ex - c, h, 0f, h - ey + c, 0f, h - ey)
+            p.cubicTo(ex - kx, h, 0f, h - ey + ky, 0f, h - ey)
             p.lineTo(0f, ey)
-            p.cubicTo(0f, ey - c, ex - c, 0f, ex, 0f)
+            p.cubicTo(0f, ey - ky, ex - kx, 0f, ex, 0f)
             p.close()
             return Outline.Generic(p.asComposePath())
         }

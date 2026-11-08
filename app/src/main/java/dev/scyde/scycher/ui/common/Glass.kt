@@ -176,7 +176,7 @@ fun DrawScope.drawBlurBackdrop(wp: WallpaperState, geo: WallpaperGeometry, alpha
         )
         drawRect(Color.Black.copy(alpha = dim * alpha))
     } else {
-        drawRect(Color(0xFF0C0C10).copy(alpha = (0.55f + dim * 0.4f).coerceAtMost(0.92f) * alpha))
+        drawRect(Color(0xFF0C0C10).copy(alpha = (0.6f + dim * 0.4f).coerceAtMost(0.96f) * alpha))
     }
 }
 

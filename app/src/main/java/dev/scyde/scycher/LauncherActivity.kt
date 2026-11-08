@@ -26,7 +26,9 @@ import dev.scyde.scycher.data.LayoutOps
 import dev.scyde.scycher.ui.HostCallbacks
 import dev.scyde.scycher.ui.LauncherState
 import dev.scyde.scycher.ui.home.LauncherRoot
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import androidx.compose.ui.platform.AndroidUiDispatcher
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
@@ -90,7 +92,8 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
             if (android.os.Build.VERSION.SDK_INT >= 28) layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
 
-        state = LauncherState(app, lifecycleScope, this)
+        // UI scope must carry Compose's frame clock so Animatable/pager animations can run
+        state = LauncherState(app, CoroutineScope(lifecycleScope.coroutineContext + AndroidUiDispatcher.Main), this)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { state.closeOverlays() }
@@ -148,7 +151,7 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
         app.weather.refreshIfStale()
         if (wentAway) {
             wentAway = false
-            if (app.store.value.home.returnAnimation) lifecycleScope.launch {
+            if (app.store.value.home.returnAnimation) state.scope.launch {
                 state.enter.snapTo(0f)
                 state.enter.animateTo(1f, spring(dampingRatio = 0.82f, stiffness = 260f * app.store.value.look.animationSpeed))
             }
@@ -161,7 +164,7 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
         app.widgets.stop()
         // Leaving home for an app closes transient UI like iOS does
         state.menu = null
-        if (state.library.value > 0f && state.drag == null) lifecycleScope.launch { state.library.snapTo(0f) }
+        if (state.library.value > 0f && state.drag == null) state.scope.launch { state.library.snapTo(0f) }
         state.openFolderId = null
         state.openCategory = null
     }
