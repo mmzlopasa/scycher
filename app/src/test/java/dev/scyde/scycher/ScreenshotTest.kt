@@ -34,8 +34,13 @@ class LauncherScreenshotTest {
     @get:Rule val rule = createAndroidComposeRule<LauncherActivity>()
 
     private fun settle(ms: Long = 1500) {
-        rule.mainClock.advanceTimeBy(ms)
-        rule.waitForIdle()
+        // Animations started from the activity use the Choreographer clock, composition uses the
+        // test clock – step both a few times so they converge.
+        repeat(6) {
+            rule.mainClock.advanceTimeBy(ms / 6)
+            org.robolectric.shadows.ShadowLooper.idleMainLooper(ms / 6, java.util.concurrent.TimeUnit.MILLISECONDS)
+            rule.waitForIdle()
+        }
     }
 
     private fun shot(name: String) = save(capture(rule.activity), name)
