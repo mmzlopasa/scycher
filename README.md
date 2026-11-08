@@ -23,6 +23,7 @@ Then press Home and choose **Scycher** → *Always* (or Settings › Apps › De
 - **App Library** – grid, smart categories or A–Z list, fuzzy search (initials work: `gm` → Google Maps), web / Play Store search, hidden apps.
 - **Long-press menus** with app shortcuts, add to home/dock, rename, info, uninstall.
 - **Home gestures** – swipe up/down, double tap, two-finger swipes and pinch can open the library, notifications, quick settings, lock the screen, take a screenshot or launch any app.
+- **iPadOS look** – Liquid Glass surfaces with specular rims, **Spotlight** (swipe down in the middle), **Control Center** (swipe down on the right: brightness & volume sliders, Wi‑Fi, Bluetooth, flashlight, rotation lock, music…), **Today View** (swipe right on the first page), iOS **Customize** sheet (Default / Dark / Clear / Tinted / Automatic icons, Small / Large) and an App Library button in the dock.
 - **Ambient theme** – accent, dock and widget colors follow your wallpaper automatically.
 - **Smart search** – calculator (`12*7+3`), system settings (`wifi`, `bluetooth`…), in-app shortcuts, choice of Google / DuckDuckGo / Bing / Brave / Ecosia / Perplexity, plus YouTube, Maps and Play Store.
 - **Smart suggestions** – learns which apps you open at each time of day.

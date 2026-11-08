@@ -202,7 +202,7 @@ fun Spotlight() {
                             go(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/results?search_query=" + Uri.encode(q))))
                         }
                         ResultRow(Icons.Rounded.Map, null, "Maps", null) { go(Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(q)))) }
-                        ResultRow(Icons.Rounded.Shop, null, "App Store (Play)", null) {
+                        ResultRow(Icons.Rounded.Shop, null, "Play Store", null) {
                             go(Intent(Intent.ACTION_VIEW, Uri.parse("market://search?q=" + Uri.encode(q))))
                         }
                     }

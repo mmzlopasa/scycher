@@ -235,13 +235,20 @@ private fun RoundToggle(icon: ImageVector, on: Boolean, onColor: Color, onClick:
 private fun Connectivity(size: Dp) {
     val ctx = LocalContext.current
     val torch by SystemActions.torchOn.collectAsState()
+    val tick = LocalLauncher.current.resumeTick
+    val wifiOn = remember(tick) {
+        runCatching { ctx.applicationContext.getSystemService(android.net.wifi.WifiManager::class.java).isWifiEnabled }.getOrDefault(false)
+    }
+    val btOn = remember(tick) {
+        runCatching { ctx.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter?.isEnabled == true }.getOrDefault(false)
+    }
     Module(size, size) {
         Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.SpaceEvenly) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                RoundToggle(Icons.Rounded.Wifi, true, Color(0xFF0A84FF)) {
+                RoundToggle(Icons.Rounded.Wifi, wifiOn, Color(0xFF0A84FF)) {
                     SystemActions.openPanel(ctx, "android.settings.panel.action.WIFI", Settings.ACTION_WIFI_SETTINGS)
                 }
-                RoundToggle(Icons.Rounded.Bluetooth, true, Color(0xFF0A84FF)) {
+                RoundToggle(Icons.Rounded.Bluetooth, btOn, Color(0xFF0A84FF)) {
                     SystemActions.openPanel(ctx, Settings.ACTION_BLUETOOTH_SETTINGS, Settings.ACTION_BLUETOOTH_SETTINGS)
                 }
             }
