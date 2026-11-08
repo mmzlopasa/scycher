@@ -1,10 +1,7 @@
 package dev.scyde.scycher
 
 import android.graphics.Bitmap
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onRoot
 import dev.scyde.scycher.data.WallpaperMode
 import dev.scyde.scycher.settings.SettingsActivity
 import kotlinx.coroutines.runBlocking
@@ -15,6 +12,15 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
+
+private fun capture(activity: android.app.Activity): Bitmap {
+    val v = activity.window.decorView
+    val bmp = Bitmap.createBitmap(v.width.coerceAtLeast(1), v.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
+    val c = android.graphics.Canvas(bmp)
+    c.drawColor(0xFF000000.toInt())
+    v.draw(c)
+    return bmp
+}
 
 private fun save(bmp: Bitmap, name: String) {
     val dir = File(System.getProperty("user.dir"), "build/shots").apply { mkdirs() }
@@ -32,7 +38,7 @@ class LauncherScreenshotTest {
         rule.waitForIdle()
     }
 
-    private fun shot(name: String) = save(rule.onRoot().captureToImage().asAndroidBitmap(), name)
+    private fun shot(name: String) = save(capture(rule.activity), name)
 
     @Test
     fun screens() {
@@ -87,12 +93,12 @@ class SettingsScreenshotTest {
     @Test
     fun settings() {
         rule.waitForIdle()
-        save(rule.onRoot().captureToImage().asAndroidBitmap(), "07_settings")
+        save(capture(rule.activity), "07_settings")
         rule.runOnUiThread { rule.activity.nav += "gestures" }
         rule.mainClock.advanceTimeBy(800); rule.waitForIdle()
-        save(rule.onRoot().captureToImage().asAndroidBitmap(), "08_gestures")
+        save(capture(rule.activity), "08_gestures")
         rule.runOnUiThread { rule.activity.nav.clear(); rule.activity.nav += "dock" }
         rule.mainClock.advanceTimeBy(800); rule.waitForIdle()
-        save(rule.onRoot().captureToImage().asAndroidBitmap(), "09_dock")
+        save(capture(rule.activity), "09_dock")
     }
 }
