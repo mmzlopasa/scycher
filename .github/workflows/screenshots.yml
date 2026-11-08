@@ -1,0 +1,41 @@
+name: UI screenshots
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  shots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Run Robolectric screenshot tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: |
+            app/build/shots
+            app/build/reports/tests
+      - name: Publish screenshots branch
+        if: always()
+        run: |
+          [ -d app/build/shots ] || exit 0
+          mkdir /tmp/shots && cp -r app/build/shots/. /tmp/shots/
+          cp -r app/build/test-results /tmp/shots/test-results 2>/dev/null || true
+          cd /tmp/shots
+          git init -q -b screenshots
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A && git commit -qm "Screenshots for ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" screenshots
