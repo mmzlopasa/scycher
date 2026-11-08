@@ -23,6 +23,15 @@ Then press Home and choose **Scycher** → *Always* (or Settings › Apps › De
 - **App Library** – grid, smart categories or A–Z list, fuzzy search (initials work: `gm` → Google Maps), web / Play Store search, hidden apps.
 - **Long-press menus** with app shortcuts, add to home/dock, rename, info, uninstall.
 - **Home gestures** – swipe up/down, double tap, two-finger swipes and pinch can open the library, notifications, quick settings, lock the screen, take a screenshot or launch any app.
+- **Ambient theme** – accent, dock and widget colors follow your wallpaper automatically.
+- **Smart search** – calculator (`12*7+3`), system settings (`wifi`, `bluetooth`…), in-app shortcuts, choice of Google / DuckDuckGo / Bing / Brave / Ecosia / Perplexity, plus YouTube, Maps and Play Store.
+- **Smart suggestions** – learns which apps you open at each time of day.
+- **App Library tabs** – Smart Launcher-style category tabs; move any app to any (or a new) category.
+- **App lock** – PIN + fingerprint/face for chosen apps, hidden apps and Scycher settings.
+- **Per-app customisation** – your own image as an icon, and *swipe up on an icon* to open a second app.
+- **More widgets** – Smart Stack (several widgets in one, swipe or auto-rotate), Up Next (calendar agenda), Quick toggles (flashlight, Wi‑Fi, Bluetooth, lock…), Stacked and Minimal clock styles.
+- **More gestures & actions** – pinch out, flashlight, power menu, split screen, add widget.
+- **System options** – orientation lock, hide navigation bar (immersive), wallpaper blur and vignette.
 - **Backup & restore** of the whole setup as one JSON file.
 
 ## Swipe navigation gestures on HyperOS
