@@ -198,6 +198,8 @@ fun IconImage(img: ImageBitmap?, size: Dp, modifier: Modifier = Modifier) {
                 spotShadowColor = Color.Black
             }
     ) {
+        if (c.style == dev.scyde.scycher.data.IconStyle.Clear)
+            Box(Modifier.fillMaxSize().glass(shape, SurfaceStyle.Liquid, Color.White, 0.18f, true, 0.3f))
         if (img != null) Image(img, null, Modifier.fillMaxSize())
         else Box(Modifier.fillMaxSize().clip(shape).background(Color.White.copy(alpha = 0.12f)))
     }
@@ -268,7 +270,7 @@ fun FolderIcon(item: HomeItem, iconSize: Dp, showLabel: Boolean, modifier: Modif
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Box {
             Box(
-                Modifier.size(iconSize).glass(shape, SurfaceStyle.Glass, Color.White, 0.22f, true, 0.25f).padding(iconSize * 0.12f)
+                Modifier.size(iconSize).glass(shape, SurfaceStyle.Liquid, Color.White, 0.3f, true, 0.25f).padding(iconSize * 0.12f)
             ) {
                 val mini = (iconSize * 0.76f - 4.dp) / 3
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {

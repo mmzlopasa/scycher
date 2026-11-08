@@ -57,7 +57,7 @@ val PanelShape = IconShapes.continuousRect(64f)
 
 /** Modal glass panel used for menus / sheets / dialogs. */
 fun Modifier.panelGlass(radiusPx: Float = 70f): Modifier =
-    this.glass(IconShapes.continuousRect(radiusPx), SurfaceStyle.Glass, Color(0xFF1E1E24), 0.62f, border = true, borderOpacity = 0.18f)
+    this.glass(IconShapes.continuousRect(radiusPx), SurfaceStyle.Liquid, Color(0xFF1E1E24), 1.05f, border = true, borderOpacity = 0.2f)
 
 @Composable
 fun Scrim(visible: Boolean, alpha: Float = 0.35f, onDismiss: () -> Unit) {
@@ -127,7 +127,7 @@ fun GlassButton(
             .clip(CircleShape)
             .then(
                 if (prominent) Modifier.background(accent)
-                else Modifier.glass(CircleShape, SurfaceStyle.Glass, Color(0xFF2A2A30), 0.45f, true, 0.2f)
+                else Modifier.glass(CircleShape, SurfaceStyle.Liquid, Color(0xFF2A2A30), 0.8f, true, 0.2f)
             )
             .clickable(src, null, onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),

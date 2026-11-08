@@ -65,6 +65,37 @@ object IconRenderer {
                     } else drawLayer(c, adaptive.foreground, size)
                 } else drawInset(c, src, size, 0.66f)
             }
+            IconStyle.Clear -> {
+                // iOS 26 "Clear": no plate (the launcher puts glass behind), frosted white glyph
+                val mono = adaptive?.let { monochrome(it) }
+                if (mono != null) {
+                    mono.colorFilter = PorterDuffColorFilter(0xF0FFFFFF.toInt(), PorterDuff.Mode.SRC_IN)
+                    drawLayer(c, mono, size)
+                    mono.colorFilter = null
+                } else {
+                    val fg = adaptive?.foreground ?: src
+                    val m = ColorMatrix(floatArrayOf(
+                        0.25f, 0.5f, 0.1f, 0f, 120f,
+                        0.25f, 0.5f, 0.1f, 0f, 120f,
+                        0.25f, 0.5f, 0.1f, 0f, 120f,
+                        0f, 0f, 0f, 0.92f, 0f,
+                    ))
+                    fg.colorFilter = ColorMatrixColorFilter(m)
+                    if (adaptive != null) drawLayer(c, fg, size) else drawInset(c, fg, size, 0.62f)
+                    fg.colorFilter = null
+                }
+            }
+            IconStyle.Auto -> {
+                if (adaptive != null) {
+                    drawLayer(c, adaptive.background, size)
+                    drawLayer(c, adaptive.foreground, size)
+                } else {
+                    bgPaint.shader = null
+                    bgPaint.color = cfg.legacyBackground.toInt()
+                    c.drawRect(0f, 0f, s, s, bgPaint)
+                    drawInset(c, src, size, 0.70f)
+                }
+            }
             IconStyle.Tinted, IconStyle.Monochrome -> {
                 val tint = cfg.tintColor.toInt()
                 val bgTop = if (cfg.style == IconStyle.Tinted) ColorUtils.blendARGB(0xFF151517.toInt(), tint, 0.18f) else 0xFF1C1C1E.toInt()

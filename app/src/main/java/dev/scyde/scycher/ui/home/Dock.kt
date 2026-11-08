@@ -95,6 +95,13 @@ fun Dock(modifier: Modifier = Modifier) {
                     DockSlot(HomeItem(-k.hashCode().toLong() - 10, ItemType.App, app = k), d.iconSizeDp, d.showLabels, touchX, iconPx, DragSource.Library, onCenter = {})
                 }
             }
+            if (d.libraryButton) {
+                if (recents.isEmpty() && items.isNotEmpty()) Box(
+                    Modifier.padding(horizontal = 2.dp).width(1.dp).height(d.iconSizeDp.dp * 0.8f)
+                        .align(Alignment.CenterVertically).background(Color.White.copy(alpha = 0.25f))
+                )
+                dev.scyde.scycher.ui.ipad.DockLibraryButton(d.iconSizeDp.dp)
+            }
         }
     }
 }

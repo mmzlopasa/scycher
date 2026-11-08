@@ -116,7 +116,7 @@ import java.text.Normalizer
 private fun norm(s: String) = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
 
 /** Fuzzy-ish ranking: prefix > word-prefix > initials > contains. */
-private fun score(label: String, q: String): Int {
+internal fun score(label: String, q: String): Int {
     val l = norm(label); val n = norm(q)
     if (n.isEmpty()) return 1
     if (l.startsWith(n)) return 100
@@ -242,7 +242,7 @@ fun AppLibrary() {
                             onDragEnd = { if (state.library.value < 0.75f) state.closeLibrary() else state.openLibrary() },
                         ) { c, d -> c.consume(); state.scope.launch { state.library.snapTo((state.library.value - d / 1200f).coerceIn(0f, 1f)) } }
                     }
-                    .glass(CircleShape, SurfaceStyle.Glass, Color.White, 0.14f, true, 0.2f)
+                    .glass(CircleShape, SurfaceStyle.Liquid, Color.White, 0.22f, true, 0.2f)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -345,7 +345,7 @@ private fun TabsLibrary(apps: List<AppInfo>, suggestions: List<AppInfo>, modifie
                 val on = i == sel
                 Row(
                     Modifier.clip(CircleShape)
-                        .then(if (on) Modifier.background(Color.White) else Modifier.glass(CircleShape, SurfaceStyle.Glass, Color.White, 0.10f, true, 0.15f))
+                        .then(if (on) Modifier.background(Color.White) else Modifier.glass(CircleShape, SurfaceStyle.Liquid, Color.White, 0.16f, true, 0.15f))
                         .clickable { sel = i }.padding(horizontal = 16.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

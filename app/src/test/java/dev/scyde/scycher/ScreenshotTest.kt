@@ -136,6 +136,35 @@ class LauncherScreenshotTest {
         }
         settle(1200)
         shot("15_pin")
+        rule.runOnUiThread { state.pin = null; app.store.update { it.copy(look = it.look.copy(adaptiveColors = false, vignette = 0f)) } }
+        settle(800)
+
+        // --- iPad surfaces ---
+        rule.runOnUiThread { state.scope.launch { state.pager.scrollToPage(0) } }
+        settle(800)
+        rule.runOnUiThread { state.spotlight = true; state.spotlightQuery = "" }
+        settle(1200)
+        shot("18_spotlight")
+        rule.runOnUiThread { state.spotlightQuery = "25*4" }
+        settle(800)
+        shot("19_spotlight_query")
+        rule.runOnUiThread { state.spotlight = false; state.controlCenter = true }
+        settle(1500)
+        shot("20_control_center")
+        rule.runOnUiThread { state.controlCenter = false; state.openToday() }
+        settle(1500)
+        shot("21_today_view")
+        rule.runOnUiThread { state.closeToday() }
+        settle(1500)
+        rule.runOnUiThread { state.editMode = true; state.customize = true }
+        settle(1500)
+        shot("22_customize")
+        rule.runOnUiThread {
+            state.customize = false; state.editMode = false
+            app.store.update { it.copy(icons = it.icons.copy(style = dev.scyde.scycher.data.IconStyle.Clear)) }
+        }
+        settle(1500)
+        shot("23_clear_icons")
     }
 }
 

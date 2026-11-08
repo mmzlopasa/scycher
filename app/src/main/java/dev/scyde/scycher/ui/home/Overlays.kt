@@ -164,6 +164,8 @@ private fun MenuCard(req: MenuRequest) {
                 MenuDivider()
                 MenuRow("Add Widget", Icons.Rounded.Widgets) { close(); state.widgetPicker = true }
                 MenuDivider()
+                MenuRow("Customize", Icons.Rounded.Tune) { close(); state.editMode = true; state.customize = true }
+                MenuDivider()
                 MenuRow("Wallpaper", Icons.Rounded.Wallpaper) { close(); state.host.pickWallpaper() }
                 MenuDivider()
                 MenuRow("Scycher Settings", Icons.Rounded.Settings) { close(); state.openSettings() }

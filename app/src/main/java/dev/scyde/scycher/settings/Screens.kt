@@ -307,7 +307,9 @@ fun HomeGestureSettings() {
         Group {
             GestureRow("Swipe up", g.swipeUp, g.swipeUpApp, { a -> set { it.copy(swipeUp = a) } }) { picking = "swipeUp" }
             Divider()
-            GestureRow("Swipe down", g.swipeDown, g.swipeDownApp, { a -> set { it.copy(swipeDown = a) } }) { picking = "swipeDown" }
+            GestureRow("Swipe down (middle & left)", g.swipeDown, g.swipeDownApp, { a -> set { it.copy(swipeDown = a) } }) { picking = "swipeDown" }
+            Divider()
+            GestureRow("Swipe down (right side)", g.swipeDownRight, g.swipeDownRightApp, { a -> set { it.copy(swipeDownRight = a) } }) { picking = "swipeDownRight" }
             Divider()
             GestureRow("Double tap", g.doubleTap, g.doubleTapApp, { a -> set { it.copy(doubleTap = a) } }) { picking = "doubleTap" }
             Divider()
@@ -319,7 +321,9 @@ fun HomeGestureSettings() {
             Divider()
             GestureRow("Pinch out", g.pinchOut, g.pinchOutApp, { a -> set { it.copy(pinchOut = a) } }) { picking = "pinchOut" }
         }
-        Group {
+        Group(footer = "Like iPad: swipe right on the first page to see a column of widgets.") {
+            SwitchRow("Today View", g.todayView) { v -> set { it.copy(todayView = v) } }
+            Divider()
             SwitchRow("Haptic feedback", g.haptics) { v -> set { it.copy(haptics = v) } }
         }
     }
@@ -333,6 +337,7 @@ fun HomeGestureSettings() {
                     "twoFingerDown" -> it.copy(twoFingerDownApp = key)
                     "twoFingerUp" -> it.copy(twoFingerUpApp = key)
                     "pinchOut" -> it.copy(pinchOutApp = key)
+                    "swipeDownRight" -> it.copy(swipeDownRightApp = key)
                     else -> it.copy(pinchInApp = key)
                 }
             }
@@ -543,6 +548,8 @@ fun DockSettings() {
             SwitchRow("Magnify on touch", d.magnify, "macOS-style zoom while your finger slides") { v -> set { it.copy(magnify = v) } }
             Divider()
             SwitchRow("Show app names", d.showLabels) { v -> set { it.copy(showLabels = v) } }
+            Divider()
+            SwitchRow("App Library button", d.libraryButton, "iPad-style button at the end of the dock") { v -> set { it.copy(libraryButton = v) } }
             Divider()
             SwitchRow("Recent apps section", d.showRecents, "Like iPadOS – recently opened apps on the right") { v -> set { it.copy(showRecents = v) } }
             Divider()

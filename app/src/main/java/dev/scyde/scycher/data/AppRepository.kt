@@ -155,6 +155,13 @@ class AppRepository(private val context: Context, private val store: ConfigStore
         preload(_apps.value)
     }
 
+    private fun resolvedIcons(c: IconConfig): IconConfig {
+        if (c.style != IconStyle.Auto) return c
+        val night = (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        return c.copy(style = if (night) IconStyle.Dark else IconStyle.Default)
+    }
+
     /** Re-render a single icon (e.g. after picking a custom image). */
     fun invalidate(key: String) {
         synchronized(cache) { cache.remove(key) }
@@ -191,7 +198,7 @@ class AppRepository(private val context: Context, private val store: ConfigStore
                 }
             } else {
                 val d = info.getIcon(dpi) ?: return null
-                val raw = IconRenderer.render(d, sizePx, cfg.icons)
+                val raw = IconRenderer.render(d, sizePx, resolvedIcons(cfg.icons))
                 if (info.user != Process.myUserHandle()) {
                     val badged = context.packageManager.getUserBadgedIcon(android.graphics.drawable.BitmapDrawable(context.resources, raw), info.user)
                     Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888).also {

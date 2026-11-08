@@ -93,7 +93,19 @@ fun Modifier.glass(
         .drawBehind {
             drawMaterial(style, tint, opacity, wp, geo, holder.pos, filter)
         }
-    if (border && style != SurfaceStyle.Clear) {
+    if (border && style == SurfaceStyle.Liquid) {
+        // specular rim: bright where light hits (top-left / bottom-right), fading in between
+        m = m.border(
+            1.1.dp,
+            Brush.linearGradient(
+                0f to Color.White.copy(alpha = (borderOpacity * 2.6f).coerceAtMost(0.75f)),
+                0.35f to Color.White.copy(alpha = borderOpacity * 0.25f),
+                0.65f to Color.White.copy(alpha = borderOpacity * 0.15f),
+                1f to Color.White.copy(alpha = (borderOpacity * 1.6f).coerceAtMost(0.5f)),
+            ),
+            shape
+        )
+    } else if (border && style != SurfaceStyle.Clear) {
         m = m.border(
             0.8.dp,
             Brush.verticalGradient(
@@ -116,6 +128,28 @@ private fun DrawScope.drawMaterial(
 ) {
     val blurred = wp.blurred
     when (style) {
+        SurfaceStyle.Liquid -> {
+            // Liquid Glass: clear, vivid blur with light bending at the rim and a specular highlight.
+            if (blurred != null) {
+                val (o, s) = geo.dst(blurred.width, blurred.height)
+                drawImage(
+                    blurred, IntOffset.Zero, IntSize(blurred.width, blurred.height),
+                    IntOffset((o.x - pos.x).roundToInt(), (o.y - pos.y).roundToInt()),
+                    IntSize(s.width.roundToInt(), s.height.roundToInt()),
+                    colorFilter = filter, filterQuality = FilterQuality.Low,
+                )
+                drawRect(tint.copy(alpha = opacity * 0.55f))
+            } else {
+                drawRect(tint.copy(alpha = (opacity * 0.55f + 0.16f).coerceAtMost(0.8f)))
+                drawRect(Color.Black.copy(alpha = 0.10f))
+            }
+            val m = size.minDimension
+            // specular glow from the top-left
+            drawRect(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.16f), Color.Transparent), center = Offset(m * 0.15f, 0f), radius = m * 1.1f))
+            // lens: edges slightly brighter, centre clear
+            drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = 0.10f), 0.18f to Color.Transparent, 0.82f to Color.Transparent, 1f to Color.White.copy(alpha = 0.06f)))
+            drawRect(Brush.horizontalGradient(0f to Color.White.copy(alpha = 0.06f), 0.12f to Color.Transparent, 0.88f to Color.Transparent, 1f to Color.White.copy(alpha = 0.05f)))
+        }
         SurfaceStyle.Glass, SurfaceStyle.Frosted -> {
             if (blurred != null) {
                 val (o, s) = geo.dst(blurred.width, blurred.height)

@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.NoteAdd
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Wallpaper
@@ -166,9 +167,11 @@ fun LauncherRoot(state: LauncherState) {
                     .graphicsLayer {
                         val lib = state.library.value
                         val e = state.enter.value
-                        val s = (1f - lib * 0.08f) * (0.9f + 0.1f * e)
+                        val td = state.today.value
+                        val s = (1f - lib * 0.08f) * (0.9f + 0.1f * e) * (1f - td * 0.04f)
                         scaleX = s; scaleY = s
-                        alpha = (1f - lib * 1.2f).coerceIn(0f, 1f) * (0.4f + 0.6f * e)
+                        translationX = td * 90.dp.toPx()
+                        alpha = (1f - lib * 1.2f).coerceIn(0f, 1f) * (0.4f + 0.6f * e) * (1f - td * 0.6f)
                     }
                     .homeGestures(state)
             ) {
@@ -191,6 +194,7 @@ fun LauncherRoot(state: LauncherState) {
                 EditBar(Modifier.align(Alignment.TopCenter))
             }
 
+            dev.scyde.scycher.ui.ipad.TodayView()
             AppLibrary()
             FolderOverlay()
             CategoryOverlay()
@@ -200,6 +204,9 @@ fun LauncherRoot(state: LauncherState) {
             WidgetSettingsSheet()
             RenameDialog()
             AppChooserOverlay()
+            dev.scyde.scycher.ui.ipad.Spotlight()
+            dev.scyde.scycher.ui.ipad.ControlCenter()
+            dev.scyde.scycher.ui.ipad.CustomizeSheet()
             CategoryChooser()
             Onboarding()
             PinOverlay()
@@ -214,6 +221,7 @@ private fun Modifier.homeGestures(state: LauncherState): Modifier = composed {
     val g = cfg.gestures
     val density = LocalDensity.current
     val threshold = with(density) { 70.dp.toPx() }
+    val todayPx = with(density) { 420.dp.toPx() }
     pointerInput(g, state.editMode) {
         val slop = viewConfiguration.touchSlop
         val longPress = viewConfiguration.longPressTimeoutMillis
@@ -248,7 +256,11 @@ private fun Modifier.homeGestures(state: LauncherState): Modifier = composed {
                         else if (total.getDistance() > slop) {
                             val vertical = abs(total.y) > abs(total.x) * 1.25f && ev.changes.none { it.isConsumed }
                             val zone = state.swipeZones.values.firstOrNull { it.first.contains(down.position) }
+                            val horizontalRight = total.x > 0 && abs(total.x) > abs(total.y) * 1.25f
+                            val todayOk = g.todayView && horizontalRight && state.pager.currentPage == 0 &&
+                                abs(state.pager.currentPageOffsetFraction) < 0.01f && ev.changes.none { it.isConsumed }
                             mode = when {
+                                todayOk -> { ev.changes.forEach { it.consume() }; 4 }
                                 !vertical -> -1
                                 zone == null -> 1
                                 zone.second.startsWith("stack") -> -1 // the widget scrolls itself
@@ -271,13 +283,23 @@ private fun Modifier.homeGestures(state: LauncherState): Modifier = composed {
                             }
                             if (!downFired && total.y > threshold) {
                                 downFired = true
-                                state.runGesture(g.swipeDown, g.swipeDownApp)
+                                if (down.position.x > size.width * 0.66f) state.runGesture(g.swipeDownRight, g.swipeDownRightApp)
+                                else state.runGesture(g.swipeDown, g.swipeDownApp)
                             }
                         }
                     }
                     3 -> {
                         val ch = ev.changes.firstOrNull { it.id == down.id }
                         if (ch != null) total += ch.positionChange()
+                        ev.changes.forEach { it.consume() }
+                    }
+                    4 -> {
+                        val ch = ev.changes.firstOrNull { it.id == down.id }
+                        if (ch != null) {
+                            total += ch.positionChange(); vt.addPosition(ch.uptimeMillis, ch.position)
+                            val tp = (total.x / todayPx).coerceIn(0f, 1f)
+                            state.scope.launch { state.today.snapTo(tp) }
+                        }
                         ev.changes.forEach { it.consume() }
                     }
                     2 -> {
@@ -291,6 +313,7 @@ private fun Modifier.homeGestures(state: LauncherState): Modifier = composed {
                 if (pressed.isEmpty()) break
             }
             when (mode) {
+                4 -> if (vt.calculateVelocity().x > 900f || state.today.value > 0.3f) state.openToday() else state.closeToday()
                 3 -> if (-total.y > threshold * 0.5f) iconTarget?.let { state.launch(it, null) }
                 1 -> {
                     val vy = vt.calculateVelocity().y
@@ -532,7 +555,7 @@ private fun PageIndicator(count: Int, modifier: Modifier) {
             .padding(vertical = 8.dp)
             .then(
                 if (style == PageIndicatorStyle.Pill)
-                    Modifier.glass(CircleShape, SurfaceStyle.Glass, Color.White, 0.14f, true, 0.18f).padding(horizontal = 10.dp, vertical = 7.dp)
+                    Modifier.glass(CircleShape, SurfaceStyle.Liquid, Color.White, 0.22f, true, 0.18f).padding(horizontal = 10.dp, vertical = 7.dp)
                 else Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
             ),
         horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -567,6 +590,7 @@ private fun EditBar(modifier: Modifier) {
         ) {
             GlassButton("Widget", Icons.Rounded.Add) { state.widgetPicker = true }
             GlassButton("Page", Icons.Rounded.NoteAdd) { state.addPage() }
+            GlassButton("Customize", Icons.Rounded.Palette) { state.customize = true }
             val cur = state.pager.currentPage
             val page = cfg.layout.pages.getOrNull(cur)
             if (cfg.layout.pages.size > 1 && page != null && page.items.isEmpty())

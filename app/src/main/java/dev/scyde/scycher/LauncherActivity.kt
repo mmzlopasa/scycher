@@ -160,6 +160,11 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
         }
     }
 
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (app.store.value.icons.style == dev.scyde.scycher.data.IconStyle.Auto) app.apps.invalidateIcons()
+    }
+
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         try {

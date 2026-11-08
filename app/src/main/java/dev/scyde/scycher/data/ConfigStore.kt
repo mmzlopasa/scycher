@@ -49,11 +49,25 @@ class ConfigStore(context: Context) {
     fun updateLayout(block: (HomeLayout) -> HomeLayout) = _config.update { it.copy(layout = block(it.layout)) }
 
     private fun load(): LauncherConfig = try {
-        if (file.exists()) json.decodeFromString(LauncherConfig.serializer(), file.readText()) else LauncherConfig()
+        if (file.exists()) migrate(json.decodeFromString(LauncherConfig.serializer(), file.readText())) else LauncherConfig()
     } catch (t: Throwable) {
         Log.e("Scycher", "config load failed", t)
         File(file.parentFile, "scycher.broken.json").let { b -> runCatching { file.copyTo(b, true) } }
         LauncherConfig()
+    }
+
+    /** v1 -> v2: iPad look (Liquid Glass, Spotlight on swipe down, Control Center on the right). */
+    private fun migrate(c: LauncherConfig): LauncherConfig {
+        var x = c
+        if (x.version < 2) {
+            x = x.copy(
+                version = 2,
+                gestures = if (x.gestures.swipeDown == GestureAction.Notifications) x.gestures.copy(swipeDown = GestureAction.Search) else x.gestures,
+                dock = if (x.dock.style == SurfaceStyle.Glass) x.dock.copy(style = SurfaceStyle.Liquid) else x.dock,
+                widgets = if (x.widgets.style == SurfaceStyle.Glass) x.widgets.copy(style = SurfaceStyle.Liquid) else x.widgets,
+            )
+        }
+        return x
     }
 
     @Synchronized

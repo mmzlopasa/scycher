@@ -91,6 +91,15 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
     var rename by mutableStateOf<RenameTarget?>(null)
     var resizingId by mutableStateOf<Long?>(null)
     var pin by mutableStateOf<PinRequest?>(null)
+    // iPad surfaces
+    var spotlight by mutableStateOf(false)
+    var spotlightQuery by mutableStateOf("")
+    var controlCenter by mutableStateOf(false)
+    val today = Animatable(0f)
+    var todayEdit by mutableStateOf(false)
+    var customize by mutableStateOf(false)
+    /** Where the widget picker adds widgets: "home" or "today". */
+    var pickerTarget by mutableStateOf("home")
     var appChooser by mutableStateOf<AppChooserRequest?>(null)
     var categoryFor by mutableStateOf<String?>(null)
     var showHiddenApps by mutableStateOf(false)
@@ -119,12 +128,15 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
 
     /* ------------------------------ overlays ------------------------------ */
 
-    fun anyOverlay() = pin != null || appChooser != null || categoryFor != null || menu != null || openFolderId != null || openCategory != null || widgetPicker ||
+    fun anyOverlay() = spotlight || controlCenter || customize || today.targetValue > 0f || pin != null || appChooser != null || categoryFor != null || menu != null || openFolderId != null || openCategory != null || widgetPicker ||
         widgetSettingsId != null || rename != null || library.targetValue > 0f
 
     fun closeOverlays(): Boolean {
         var closed = false
         if (pin != null) { pin = null; closed = true }
+        if (customize) { customize = false; closed = true }
+        if (spotlight) { spotlight = false; spotlightQuery = ""; closed = true }
+        if (controlCenter) { controlCenter = false; closed = true }
         if (appChooser != null) { appChooser = null; closed = true }
         if (categoryFor != null) { categoryFor = null; closed = true }
         if (menu != null) { menu = null; closed = true }
@@ -134,6 +146,7 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
         if (openCategory != null) { openCategory = null; closed = true }
         if (openFolderId != null) { openFolderId = null; closed = true }
         if (!closed && library.targetValue > 0f) { closeLibrary(); closed = true }
+        if (!closed && today.targetValue > 0f) { closeToday(); closed = true }
         if (!closed && editMode) { editMode = false; closed = true }
         return closed
     }
@@ -143,6 +156,9 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
         scope.launch { library.animateTo(1f, spring(dampingRatio = 0.86f, stiffness = 380f)) }
         if (search || store.value.library.autoKeyboard) libraryFocus++
     }
+
+    fun openToday() { scope.launch { today.animateTo(1f, spring(dampingRatio = 0.86f, stiffness = 380f)) } }
+    fun closeToday() { todayEdit = false; scope.launch { today.animateTo(0f, spring(dampingRatio = 1f, stiffness = 520f)) } }
 
     fun closeLibrary() {
         showHiddenApps = false
@@ -187,7 +203,9 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
         when (action) {
             GestureAction.None -> {}
             GestureAction.OpenLibrary -> openLibrary()
-            GestureAction.Search -> openLibrary(search = true)
+            GestureAction.Search -> { spotlightQuery = ""; spotlight = true }
+            GestureAction.ControlCenter -> controlCenter = true
+            GestureAction.TodayView -> openToday()
             GestureAction.Notifications -> SystemActions.openNotifications(context)
             GestureAction.QuickSettings -> SystemActions.openQuickSettings(context)
             GestureAction.LockScreen -> SystemActions.lockScreen(context)
@@ -223,6 +241,10 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
     }
 
     fun addBuiltinWidget(kind: dev.scyde.scycher.data.BuiltinKind, w: Int, h: Int) {
+        if (pickerTarget == "today") {
+            store.updateLayout { it.copy(today = it.today + HomeItem(newId(), ItemType.Widget, w = w.coerceAtMost(4), h = h, builtin = kind)) }
+            widgetPicker = false; pickerTarget = "home"; return
+        }
         val item = HomeItem(newId(), ItemType.Widget, w = w.coerceAtMost(cols), h = h.coerceAtMost(rows), builtin = kind)
         store.updateLayout { LayoutOps.placeAnywhere(it, cols, rows, item, currentPage(), newId()) }
         widgetPicker = false

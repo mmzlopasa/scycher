@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class LauncherConfig(
-    val version: Int = 1,
+    val version: Int = 2,
     val onboarded: Boolean = false,
     val home: HomeConfig = HomeConfig(),
     val icons: IconConfig = IconConfig(),
@@ -101,7 +101,7 @@ data class IconConfig(
 )
 
 enum class IconShape { Squircle, RoundedSquare, Circle, Teardrop, Pebble, Square, Hexagon, System }
-enum class IconStyle { Default, Dark, Tinted, Monochrome }
+enum class IconStyle { Default, Dark, Clear, Tinted, Monochrome, Auto }
 enum class BadgeStyle { Count, Dot, Hidden }
 
 @Serializable
@@ -109,7 +109,7 @@ data class DockConfig(
     val enabled: Boolean = true,
     val maxIcons: Int = 10,
     val iconSizeDp: Int = 60,
-    val style: SurfaceStyle = SurfaceStyle.Glass,
+    val style: SurfaceStyle = SurfaceStyle.Liquid,
     val opacity: Float = 0.28f,
     val tintColor: Long = 0xFFFFFFFF,
     val cornerRadiusDp: Int = 32,
@@ -124,13 +124,15 @@ data class DockConfig(
     val fullWidth: Boolean = false,
     val shadow: Boolean = true,
     val magnify: Boolean = true,
+    /** iPad-style App Library button at the end of the dock. */
+    val libraryButton: Boolean = true,
 )
 
-enum class SurfaceStyle { Glass, Frosted, Solid, Tinted, Clear }
+enum class SurfaceStyle { Liquid, Glass, Frosted, Solid, Tinted, Clear }
 
 @Serializable
 data class WidgetStyleConfig(
-    val style: SurfaceStyle = SurfaceStyle.Glass,
+    val style: SurfaceStyle = SurfaceStyle.Liquid,
     val opacity: Float = 0.30f,
     val tintColor: Long = 0xFF1C1C24,
     val textColor: Long = 0xFFFFFFFF,
@@ -170,7 +172,12 @@ enum class LibrarySort { Alphabetical, MostUsed, InstallDate }
 @Serializable
 data class GestureConfig(
     val swipeUp: GestureAction = GestureAction.OpenLibrary,
-    val swipeDown: GestureAction = GestureAction.Notifications,
+    val swipeDown: GestureAction = GestureAction.Search,
+    /** iPad: pulling down on the right side opens Control Center. */
+    val swipeDownRight: GestureAction = GestureAction.ControlCenter,
+    val swipeDownRightApp: String? = null,
+    /** Swipe right on the first page opens Today View. */
+    val todayView: Boolean = true,
     val doubleTap: GestureAction = GestureAction.LockScreen,
     val twoFingerDown: GestureAction = GestureAction.QuickSettings,
     val twoFingerUp: GestureAction = GestureAction.Search,
@@ -189,7 +196,9 @@ data class GestureConfig(
 enum class GestureAction(val label: String) {
     None("Nothing"),
     OpenLibrary("App Library"),
-    Search("Search"),
+    Search("Spotlight search"),
+    ControlCenter("Control Center"),
+    TodayView("Today View"),
     Notifications("Notifications"),
     QuickSettings("Quick settings"),
     LockScreen("Lock screen"),
@@ -262,6 +271,16 @@ data class NavGestureConfig(
 data class HomeLayout(
     val pages: List<HomePage> = listOf(HomePage(1L)),
     val dock: List<HomeItem> = emptyList(),
+    /** Widgets in Today View (left of the first page). */
+    val today: List<HomeItem> = DefaultToday,
+)
+
+val DefaultToday = listOf(
+    HomeItem(900_001, ItemType.Widget, w = 4, h = 2, builtin = BuiltinKind.Weather),
+    HomeItem(900_002, ItemType.Widget, w = 2, h = 2, builtin = BuiltinKind.Calendar),
+    HomeItem(900_003, ItemType.Widget, w = 2, h = 2, builtin = BuiltinKind.Battery),
+    HomeItem(900_004, ItemType.Widget, w = 4, h = 2, builtin = BuiltinKind.Agenda),
+    HomeItem(900_005, ItemType.Widget, w = 4, h = 2, builtin = BuiltinKind.NowPlaying),
 )
 
 @Serializable
