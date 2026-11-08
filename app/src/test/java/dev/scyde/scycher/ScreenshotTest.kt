@@ -110,13 +110,12 @@ class LauncherScreenshotTest {
         rule.runOnUiThread {
             app.store.updateLayout { l ->
                 val W = dev.scyde.scycher.data.ItemType.Widget
-                val K = dev.scyde.scycher.data.BuiltinKind
                 l.copy(pages = l.pages.take(1) + dev.scyde.scycher.data.HomePage(id(), listOf(
-                    dev.scyde.scycher.data.HomeItem(id(), W, 0, 0, 4, 2, builtin = K.Stack),
-                    dev.scyde.scycher.data.HomeItem(id(), W, 4, 0, 2, 2, builtin = K.ClockDigital, extra = mapOf("variant" to "Stacked")),
-                    dev.scyde.scycher.data.HomeItem(id(), W, 0, 2, 4, 2, builtin = K.Agenda),
-                    dev.scyde.scycher.data.HomeItem(id(), W, 4, 2, 2, 2, builtin = K.ClockDigital, extra = mapOf("variant" to "Minimal")),
-                    dev.scyde.scycher.data.HomeItem(id(), W, 0, 4, 4, 1, builtin = K.Toggles),
+                    dev.scyde.scycher.data.HomeItem(id(), W, 0, 0, 4, 2, builtin = dev.scyde.scycher.data.BuiltinKind.Stack),
+                    dev.scyde.scycher.data.HomeItem(id(), W, 4, 0, 2, 2, builtin = dev.scyde.scycher.data.BuiltinKind.ClockDigital, extra = mapOf("variant" to "Stacked")),
+                    dev.scyde.scycher.data.HomeItem(id(), W, 0, 2, 4, 2, builtin = dev.scyde.scycher.data.BuiltinKind.Agenda),
+                    dev.scyde.scycher.data.HomeItem(id(), W, 4, 2, 2, 2, builtin = dev.scyde.scycher.data.BuiltinKind.ClockDigital, extra = mapOf("variant" to "Minimal")),
+                    dev.scyde.scycher.data.HomeItem(id(), W, 0, 4, 4, 1, builtin = dev.scyde.scycher.data.BuiltinKind.Toggles),
                 )))
             }
         }
