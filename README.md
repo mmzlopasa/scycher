@@ -10,7 +10,7 @@ Built by [SCYDE](https://scyde.dev) · tuned for the Xiaomi Redmi Pad 2 Pro (Hyp
 
 ## Download
 
-Grab the latest `Scycher-x.y.z.apk` from **[Releases](https://github.com/mmzlopasa/scycher/releases)** and install it on the tablet.
+Grab the latest signed `Scycher-x.y.z.apk` from the **[`releases/`](releases/)** folder (or GitHub Releases once CI signing is configured) and install it on the tablet.
 Then press Home and choose **Scycher** → *Always* (or Settings › Apps › Default apps › Home app).
 
 ## Highlights
