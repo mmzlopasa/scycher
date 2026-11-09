@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.scyde.scycher.IconPackSheetTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-09T11:29:33.048Z" hostname="runnervm7aw5e" time="10.677">
+  <properties/>
+  <testcase name="sheet" classname="dev.scyde.scycher.IconPackSheetTest" time="10.677"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

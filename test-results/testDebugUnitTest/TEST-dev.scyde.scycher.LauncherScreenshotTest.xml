@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="dev.scyde.scycher.LauncherScreenshotTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-09T11:29:43.738Z" hostname="runnervm7aw5e" time="48.267">
+  <properties/>
+  <testcase name="screens" classname="dev.scyde.scycher.LauncherScreenshotTest" time="48.267"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>
