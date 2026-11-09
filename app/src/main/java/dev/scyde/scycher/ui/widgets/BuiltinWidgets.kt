@@ -391,11 +391,12 @@ private fun CalendarWidget(item: HomeItem, modifier: Modifier) {
         val u = unit()
         val wide = maxWidth > maxHeight * 1.4f
         val big = maxHeight > 300.dp
+        val side = minOf(maxWidth.value, maxHeight.value)
         if (maxWidth < 150.dp || maxHeight < 150.dp) {
             // Too small for a month grid: just the date, like iOS's small calendar.
             Column(Modifier.fillMaxSize().padding((10 * u).dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                T(today.dayOfWeek.getDisplayName(JTextStyle.SHORT, Locale.getDefault()).uppercase(), (12 * u).sp, Color(0xFFFF453A), FontWeight.Bold)
-                T(today.dayOfMonth.toString(), (40 * u).sp, c.text, FontWeight.Light)
+                T(today.dayOfWeek.getDisplayName(JTextStyle.SHORT, Locale.getDefault()).uppercase(), (side * 0.13f).sp, Color(0xFFFF453A), FontWeight.Bold)
+                T(today.dayOfMonth.toString(), (side * 0.48f).sp, c.text, FontWeight.Light, lineHeight = (side * 0.5f).sp)
             }
         } else if (!wide && !big) {
             Column(Modifier.fillMaxSize().padding((16 * u).dp)) {

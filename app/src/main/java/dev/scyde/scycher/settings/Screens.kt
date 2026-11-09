@@ -119,11 +119,15 @@ fun MainScreen() {
             Text("SCYDE Launcher · v${BuildConfig.VERSION_NAME}", color = Color.White.copy(alpha = 0.65f), fontSize = 14.sp)
             Spacer(Modifier.height(12.dp))
             if (!isDefault) Text(
-                "Set as default home app →", color = Color(0xFFB9A7FF), fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                "Set as default home app", color = Color(0xFFB9A7FF), fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.clickable {
                     runCatching { ctx.startActivity(Intent(Settings.ACTION_HOME_SETTINGS)) }
                 }
-            ) else Text("Scycher is your home screen ✓", color = Color(0xFF30D158), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            ) else Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.CheckCircle, null, tint = Color(0xFF30D158), modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Scycher is your home screen", color = Color(0xFF30D158), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
         Group {
             NavRow("Navigation gestures", Icons.Rounded.Swipe, Color(0xFF0A84FF)) { nav.nav += "gestures" }
