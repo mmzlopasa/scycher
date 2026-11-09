@@ -3,6 +3,7 @@ package dev.scyde.scycher.ui.home
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -109,6 +110,10 @@ fun LauncherRoot(state: LauncherState) {
     val rawCfg by app.store.config.collectAsState()
     val wp by app.wallpaper.state.collectAsState()
     val cfg = remember(rawCfg, wp.accent, wp.dominant) { rawCfg.adaptive(wp) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val reduceMotion = remember(state.resumeTick) {
+        android.provider.Settings.Global.getFloat(ctx.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    }
     val badges by ScycherNotificationListener.badges.collectAsState()
     val geo = remember { WallpaperGeometry() }
     val density = LocalDensity.current
@@ -118,13 +123,14 @@ fun LauncherRoot(state: LauncherState) {
         LocalWallpaper provides wp,
         LocalWallpaperGeometry provides geo,
         LocalBadges provides badges,
+        dev.scyde.scycher.ui.common.LocalReduceMotion provides reduceMotion,
         LocalLauncher provides state,
     ) {
         val pager = rememberPagerState(pageCount = { state.store.value.layout.pages.size })
         state.pager = pager
 
         // Wallpaper parallax follows the pager
-        geo.parallaxRange = if (cfg.look.parallax && cfg.look.wallpaperMode == WallpaperMode.Scycher && cfg.layout.pages.size > 1)
+        geo.parallaxRange = if (!reduceMotion && cfg.look.parallax && cfg.look.wallpaperMode == WallpaperMode.Scycher && cfg.layout.pages.size > 1)
             with(density) { 90.dp.toPx() } else 0f
         LaunchedEffect(pager, cfg.layout.pages.size) {
             snapshotFlow { pager.currentPage + pager.currentPageOffsetFraction }.collect { pos ->
@@ -168,10 +174,11 @@ fun LauncherRoot(state: LauncherState) {
                         val lib = state.library.value
                         val e = state.enter.value
                         val td = state.today.value
-                        val s = (1f - lib * 0.08f) * (0.9f + 0.1f * e) * (1f - td * 0.04f)
+                        // Returning home happens hundreds of times a day: keep it short and quiet.
+                        val s = (1f - lib * 0.08f) * (0.965f + 0.035f * e) * (1f - td * 0.04f)
                         scaleX = s; scaleY = s
                         translationX = td * 90.dp.toPx()
-                        alpha = (1f - lib * 1.2f).coerceIn(0f, 1f) * (0.4f + 0.6f * e) * (1f - td * 0.6f)
+                        alpha = (1f - lib * 1.2f).coerceIn(0f, 1f) * (0.75f + 0.25f * e) * (1f - td * 0.6f)
                     }
                     .homeGestures(state)
             ) {
@@ -215,6 +222,10 @@ fun LauncherRoot(state: LauncherState) {
 }
 
 /* ----------------------------------- gestures ----------------------------------- */
+
+/** Apple's momentum projection (deceleration 0.998) in progress units. */
+private fun projected(value: Float, velocityPerSecond: Float): Float =
+    value + (velocityPerSecond / 1000f) * 0.998f / (1f - 0.998f)
 
 private fun Modifier.homeGestures(state: LauncherState): Modifier = composed {
     val cfg = LocalConfig.current
@@ -313,14 +324,19 @@ private fun Modifier.homeGestures(state: LauncherState): Modifier = composed {
                 if (pressed.isEmpty()) break
             }
             when (mode) {
-                4 -> if (vt.calculateVelocity().x > 900f || state.today.value > 0.3f) state.openToday() else state.closeToday()
+                4 -> {
+                    // Apple: project where the flick is going, then hand its velocity to the spring.
+                    val v = vt.calculateVelocity().x / todayPx
+                    if (projected(state.today.value, v) > 0.5f) state.openToday(v) else state.closeToday(v)
+                }
                 3 -> if (-total.y > threshold * 0.5f) iconTarget?.let { state.launch(it, null) }
                 1 -> {
                     val vy = vt.calculateVelocity().y
                     if (total.y < 0) {
                         if (driveLibrary) {
-                            val open = vy < -900f || state.library.value > 0.3f
-                            if (open) state.openLibrary(g.swipeUp == GestureAction.Search) else state.closeLibrary()
+                            val v = -vy / (height * 0.45f)
+                            if (projected(state.library.value, v) > 0.5f) state.openLibrary(g.swipeUp == GestureAction.Search, v)
+                            else state.closeLibrary(v)
                         } else if (-total.y > threshold) state.runGesture(g.swipeUp, g.swipeUpApp)
                     }
                 }
@@ -404,11 +420,33 @@ private fun PageGrid(index: Int, page: HomePage) {
             }
         )
         DropPreview(index, page, cw.value, ch.value)
+        val density = LocalDensity.current
+        val cwPx = with(density) { cw.toPx() }; val chPx = with(density) { ch.toPx() }
         for (item in page.items) key(item.id) {
+            val target = androidx.compose.ui.unit.IntOffset((cwPx * item.x).roundToInt(), (chPx * item.y).roundToInt())
+            val pos = remember {
+                val drop = state.takeDropOrigin(item.id)
+                val start = if (drop != null) androidx.compose.ui.unit.IntOffset(
+                    (drop.x - state.gridOrigin.x).roundToInt(), (drop.y - state.gridOrigin.y).roundToInt()
+                ) else target
+                androidx.compose.animation.core.Animatable(start, androidx.compose.ui.unit.IntOffset.VectorConverter)
+            }
+            LaunchedEffect(target) { pos.animateTo(target, dev.scyde.scycher.ui.common.Motion.settle()) }
+            val appear = remember { androidx.compose.animation.core.Animatable(if (state.lastAddedId == item.id) 0f else 1f) }
+            LaunchedEffect(Unit) { if (appear.value < 1f) appear.animateTo(1f, dev.scyde.scycher.ui.common.Motion.ui()) }
+            val gone by animateFloatAsState(
+                if (item.id in state.removing) 0f else 1f, dev.scyde.scycher.ui.common.Motion.exit(), label = "remove"
+            )
             Box(
                 Modifier
-                    .offset(cw * item.x, ch * item.y)
-                    .size(cw * item.w, ch * item.h),
+                    .offset { pos.value }
+                    .size(cw * item.w, ch * item.h)
+                    .graphicsLayer {
+                        val v = appear.value * gone
+                        alpha = v
+                        val s = 0.86f + 0.14f * v // never from zero
+                        scaleX = s; scaleY = s
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 GridItem(item, index, cw.value, ch.value)
@@ -435,7 +473,7 @@ private fun GridItem(item: HomeItem, pageIndex: Int, cwDp: Float, chDp: Float) {
             Modifier.swipeZone(item).itemGestures(item, DragSource.Page(pageIndex)) { bounds ->
                 when (item.type) {
                     ItemType.App, ItemType.Shortcut -> if (!edit) item.app?.let { state.launch(it, bounds) }
-                    ItemType.Folder -> state.openFolderId = item.id
+                    ItemType.Folder -> state.openFolder(item.id, bounds)
                     ItemType.Widget -> if (edit) state.widgetSettingsId = item.id else widgetTap(state, item)
                     ItemType.SystemWidget -> if (edit) state.widgetSettingsId = item.id
                 }
@@ -448,10 +486,7 @@ private fun GridItem(item: HomeItem, pageIndex: Int, cwDp: Float, chDp: Float) {
             }
         }
         if (edit) {
-            RemoveButton(Modifier.align(Alignment.TopStart).offset((-6).dp, (-6).dp)) {
-                if (item.type == ItemType.Folder || item.isWidget) state.removeItem(item)
-                else state.removeItem(item)
-            }
+            RemoveButton(Modifier.align(Alignment.TopStart).offset((-6).dp, (-6).dp)) { state.removeAnimated(item) }
             if (isWidget) ResizeHandle(item, pageIndex, cwDp, chDp, Modifier.align(Alignment.BottomEnd))
         }
     }
@@ -473,10 +508,8 @@ private fun ResizeHandle(item: HomeItem, pageIndex: Int, cwDp: Float, chDp: Floa
     val cwPx = with(density) { cwDp.dp.toPx() }; val chPx = with(density) { chDp.dp.toPx() }
     Box(
         modifier
-            .offset(6.dp, 6.dp)
-            .size(28.dp)
-            .clip(CircleShape)
-            .glass(CircleShape, SurfaceStyle.Frosted, Color(0xFF3A3A3C), 0.85f, true, 0.3f)
+            .offset(14.dp, 14.dp)
+            .size(44.dp) // touch target; the visible knob is 28dp (drawn below)
             .pointerInput(item.id) {
                 var acc = Offset.Zero
                 var start = item
@@ -498,7 +531,10 @@ private fun ResizeHandle(item: HomeItem, pageIndex: Int, cwDp: Float, chDp: Floa
             },
         contentAlignment = Alignment.Center
     ) {
-        Icon(Icons.Rounded.OpenInFull, null, tint = Color.White, modifier = Modifier.size(14.dp).graphicsLayer { rotationZ = 90f })
+        Box(
+            Modifier.size(28.dp).clip(CircleShape).glass(CircleShape, SurfaceStyle.Frosted, Color(0xFF3A3A3C), 0.85f, true, 0.3f),
+            contentAlignment = Alignment.Center
+        ) { Icon(Icons.Rounded.OpenInFull, "Resize", tint = Color.White, modifier = Modifier.size(14.dp).graphicsLayer { rotationZ = 90f }) }
     }
 }
 
@@ -594,9 +630,9 @@ private fun EditBar(modifier: Modifier) {
             val cur = state.pager.currentPage
             val page = cfg.layout.pages.getOrNull(cur)
             if (cfg.layout.pages.size > 1 && page != null && page.items.isEmpty())
-                GlassButton("", Icons.Rounded.DeleteOutline) { state.deletePage(cur) }
-            GlassButton("", Icons.Rounded.Wallpaper) { state.host.pickWallpaper() }
-            GlassButton("", Icons.Rounded.Settings) { state.openSettings() }
+                GlassButton("", Icons.Rounded.DeleteOutline, contentDescription = "Delete page") { state.deletePage(cur) }
+            GlassButton("", Icons.Rounded.Wallpaper, contentDescription = "Change wallpaper") { state.host.pickWallpaper() }
+            GlassButton("", Icons.Rounded.Settings, contentDescription = "Scycher settings") { state.openSettings() }
             Spacer(Modifier.weight(1f))
             GlassButton("Done", prominent = true, accent = Color.White) { state.editMode = false; state.tidyPages() }
         }

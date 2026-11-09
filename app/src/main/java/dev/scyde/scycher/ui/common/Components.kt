@@ -49,6 +49,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.sp
 import dev.scyde.scycher.data.IconShapes
 import dev.scyde.scycher.data.SurfaceStyle
@@ -116,6 +119,7 @@ fun GlassButton(
     modifier: Modifier = Modifier,
     prominent: Boolean = false,
     accent: Color = Color(0xFFB9A7FF),
+    contentDescription: String? = null,
     onClick: () -> Unit,
 ) {
     val src = remember { MutableInteractionSource() }
@@ -129,8 +133,9 @@ fun GlassButton(
                 if (prominent) Modifier.background(accent)
                 else Modifier.glass(CircleShape, SurfaceStyle.Liquid, Color(0xFF2A2A30), 0.8f, true, 0.2f)
             )
-            .clickable(src, null, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .clickable(src, null, role = androidx.compose.ui.semantics.Role.Button, onClickLabel = contentDescription ?: text, onClick = onClick)
+            .androidxSemantics(contentDescription ?: text)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
@@ -139,7 +144,33 @@ fun GlassButton(
             Icon(icon, null, tint = c, modifier = Modifier.size(18.dp))
             if (text.isNotEmpty()) Spacer(Modifier.width(8.dp))
         }
-        if (text.isNotEmpty()) Text(text, color = c, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        if (text.isNotEmpty()) Text(text, color = c, style = TypeScale.Subhead.copy(fontWeight = FontWeight.SemiBold), maxLines = 1)
+    }
+}
+
+private fun Modifier.androidxSemantics(label: String): Modifier =
+    if (label.isEmpty()) this else this.then(Modifier.semantics { contentDescription = label })
+
+/** Multi-select chips (a selected chip is filled – no glyphs standing in for a checkmark). */
+@Composable
+fun <T> MultiChips(options: List<T>, selected: Set<T>, label: (T) -> String, onToggle: (T) -> Unit) {
+    Row(
+        Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        for (o in options) {
+            val sel = o in selected
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(if (sel) Color.White else Color.White.copy(alpha = 0.10f))
+                    .clickable(role = androidx.compose.ui.semantics.Role.Checkbox) { onToggle(o) }
+                    .semantics { stateDescription = if (sel) "Selected" else "Not selected" }
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Text(label(o), color = if (sel) Color.Black else Color.White, style = TypeScale.Subhead.copy(fontWeight = FontWeight.Medium))
+            }
+        }
     }
 }
 
@@ -153,7 +184,7 @@ fun MenuRow(text: String, icon: ImageVector?, destructive: Boolean = false, onCl
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val c = if (destructive) Color(0xFFFF453A) else Color.White
-        Text(text, color = c, fontSize = 16.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text, color = c, style = TypeScale.Body, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (icon != null) Icon(icon, null, tint = c, modifier = Modifier.size(20.dp))
     }
 }
@@ -212,7 +243,7 @@ fun <T> Chips(options: List<T>, selected: T, label: (T) -> String, onPick: (T) -
 @Composable
 fun SectionTitle(text: String) {
     Text(
-        text.uppercase(), color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+        text.uppercase(), color = dev.scyde.scycher.ui.common.Palette2.Label3, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.8.sp, modifier = Modifier.padding(start = 20.dp, top = 14.dp, bottom = 6.dp)
     )
 }

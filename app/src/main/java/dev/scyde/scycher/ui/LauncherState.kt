@@ -83,6 +83,12 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
     var libraryQuery by mutableStateOf("")
     var libraryFocus by mutableIntStateOf(0)
     var openFolderId by mutableStateOf<Long?>(null)
+    /** Where the folder icon sits on screen, so the folder can grow out of it and shrink back. */
+    var folderAnchor: androidx.compose.ui.geometry.Rect? = null
+    fun openFolder(id: Long, bounds: Rect?) {
+        folderAnchor = bounds?.let { androidx.compose.ui.geometry.Rect(it.left.toFloat(), it.top.toFloat(), it.right.toFloat(), it.bottom.toFloat()) }
+        openFolderId = id
+    }
     var openCategory by mutableStateOf<Pair<String, List<String>>?>(null)
     var menu by mutableStateOf<MenuRequest?>(null)
     var drag by mutableStateOf<DragSession?>(null)
@@ -105,6 +111,24 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
     var showHiddenApps by mutableStateOf(false)
     /** Icons with a swipe-up action and stack widgets claim vertical swipes in these root rects. */
     val swipeZones = HashMap<Long, Pair<androidx.compose.ui.geometry.Rect, String>>()
+
+    /** Root-space top-left a just-dropped item should settle from. */
+    val dropOrigins = HashMap<Long, Offset>()
+    fun takeDropOrigin(id: Long): Offset? = dropOrigins.remove(id)
+    /** The item that was just added (it fades/scales in once). */
+    var lastAddedId by mutableStateOf<Long?>(null)
+    /** Items playing their removal animation. */
+    val removing = androidx.compose.runtime.mutableStateListOf<Long>()
+
+    fun removeAnimated(item: HomeItem) {
+        if (item.id in removing) return
+        removing += item.id
+        scope.launch {
+            kotlinx.coroutines.delay(160)
+            removeItem(item)
+            removing -= item.id
+        }
+    }
 
     /** Incremented on every onResume so UI can re-check permissions etc. */
     var resumeTick by mutableIntStateOf(0)
@@ -151,18 +175,19 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
         return closed
     }
 
-    fun openLibrary(search: Boolean = false) {
+    /** [velocity] is the finger's release velocity in progress-units/s (Apple: hand the velocity to the spring). */
+    fun openLibrary(search: Boolean = false, velocity: Float = 0f) {
         libraryQuery = ""
-        scope.launch { library.animateTo(1f, spring(dampingRatio = 0.86f, stiffness = 380f)) }
+        scope.launch { library.animateTo(1f, dev.scyde.scycher.ui.common.Motion.sheet(), initialVelocity = velocity) }
         if (search || store.value.library.autoKeyboard) libraryFocus++
     }
 
-    fun openToday() { scope.launch { today.animateTo(1f, spring(dampingRatio = 0.86f, stiffness = 380f)) } }
-    fun closeToday() { todayEdit = false; scope.launch { today.animateTo(0f, spring(dampingRatio = 1f, stiffness = 520f)) } }
+    fun openToday(velocity: Float = 0f) { scope.launch { today.animateTo(1f, dev.scyde.scycher.ui.common.Motion.sheet(), initialVelocity = velocity) } }
+    fun closeToday(velocity: Float = 0f) { todayEdit = false; scope.launch { today.animateTo(0f, dev.scyde.scycher.ui.common.Motion.exit(), initialVelocity = velocity) } }
 
-    fun closeLibrary() {
+    fun closeLibrary(velocity: Float = 0f) {
         showHiddenApps = false
-        scope.launch { library.animateTo(0f, spring(dampingRatio = 1f, stiffness = 520f)) }
+        scope.launch { library.animateTo(0f, dev.scyde.scycher.ui.common.Motion.exit(), initialVelocity = velocity) }
         libraryQuery = ""
     }
 
@@ -229,7 +254,8 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
     fun currentPage(): Int = if (::pager.isInitialized) pager.currentPage.coerceIn(0, store.value.layout.pages.lastIndex) else 0
 
     fun addAppToHome(key: String) {
-        store.updateLayout { LayoutOps.placeAnywhere(it, cols, rows, HomeItem(newId(), ItemType.App, app = key), currentPage(), newId()) }
+        val id = newId(); lastAddedId = id
+        store.updateLayout { LayoutOps.placeAnywhere(it, cols, rows, HomeItem(id, ItemType.App, app = key), currentPage(), newId()) }
     }
 
     fun addAppToDock(key: String): Boolean {
@@ -241,17 +267,20 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
     }
 
     fun addBuiltinWidget(kind: dev.scyde.scycher.data.BuiltinKind, w: Int, h: Int) {
+        val id = newId()
+        lastAddedId = id
         if (pickerTarget == "today") {
             store.updateLayout { it.copy(today = it.today + HomeItem(newId(), ItemType.Widget, w = w.coerceAtMost(4), h = h, builtin = kind)) }
             widgetPicker = false; pickerTarget = "home"; return
         }
-        val item = HomeItem(newId(), ItemType.Widget, w = w.coerceAtMost(cols), h = h.coerceAtMost(rows), builtin = kind)
+        val item = HomeItem(id, ItemType.Widget, w = w.coerceAtMost(cols), h = h.coerceAtMost(rows), builtin = kind)
         store.updateLayout { LayoutOps.placeAnywhere(it, cols, rows, item, currentPage(), newId()) }
         widgetPicker = false
     }
 
     fun addSystemWidgetItem(widgetId: Int, provider: String, w: Int, h: Int) {
-        val item = HomeItem(newId(), ItemType.SystemWidget, w = w.coerceIn(1, cols), h = h.coerceIn(1, rows), widgetId = widgetId, provider = provider)
+        val sid = newId(); lastAddedId = sid
+        val item = HomeItem(sid, ItemType.SystemWidget, w = w.coerceIn(1, cols), h = h.coerceIn(1, rows), widgetId = widgetId, provider = provider)
         store.updateLayout { LayoutOps.placeAnywhere(it, cols, rows, item, currentPage(), newId()) }
         widgetPicker = false
     }
@@ -392,6 +421,9 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
                 return@updateLayout LayoutOps.placeAnywhere(l, cols, rows, newItem, pageIndex, newId())
             }
             val placed = newItem.copy(x = spot.first, y = spot.second)
+            // Remember where the finger let go so the item settles from there instead of jumping.
+            val shadowCenter = p - d.grab + Offset(d.size.width / 2f, d.size.height / 2f)
+            dropOrigins[placed.id] = shadowCenter - Offset(cw * placed.w / 2f, ch * placed.h / 2f)
             l.copy(pages = l.pages.toMutableList().also { it[pageIndex] = target.copy(items = target.items + placed) })
         }
     }

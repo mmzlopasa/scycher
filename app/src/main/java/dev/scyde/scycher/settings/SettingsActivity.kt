@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.em
 import dev.scyde.scycher.ScycherApp
 import dev.scyde.scycher.data.LauncherConfig
 import dev.scyde.scycher.ui.common.Chips
@@ -146,7 +147,7 @@ fun Page(title: String, back: Boolean = true, content: @Composable ColumnScope.(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBackIos, null, tint = LocalConfig.current.look.accentColor.toColor(), modifier = Modifier.size(18.dp))
-                Text("Back", color = LocalConfig.current.look.accentColor.toColor(), fontSize = 17.sp)
+                Text("Back", color = LocalConfig.current.look.accentColor.toColor(), style = dev.scyde.scycher.ui.common.TypeScale.Body)
             }
         }
         Column(
@@ -154,7 +155,7 @@ fun Page(title: String, back: Boolean = true, content: @Composable ColumnScope.(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Column(Modifier.widthIn(max = 760.dp).fillMaxWidth().padding(horizontal = 18.dp)) {
-                Text(title, color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
+                Text(title, color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.LargeTitle, modifier = Modifier.padding(start = 4.dp, bottom = 10.dp))
                 content()
                 Spacer(Modifier.height(48.dp))
             }
@@ -165,7 +166,7 @@ fun Page(title: String, back: Boolean = true, content: @Composable ColumnScope.(
 @Composable
 fun Group(title: String? = null, footer: String? = null, content: @Composable ColumnScope.() -> Unit) {
     if (title != null) Text(
-        title.uppercase(), color = Sub, fontSize = 13.sp, letterSpacing = 0.5.sp,
+        title.uppercase(), color = Sub, style = dev.scyde.scycher.ui.common.TypeScale.Footnote.copy(letterSpacing = 0.04.em),
         modifier = Modifier.padding(start = 16.dp, top = 22.dp, bottom = 7.dp)
     ) else Spacer(Modifier.height(18.dp))
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Card), content = content)
@@ -187,7 +188,7 @@ fun NavRow(title: String, icon: ImageVector?, iconBg: Color = Color(0xFF636366),
             }
             Spacer(Modifier.width(14.dp))
         }
-        Text(title, color = Color.White, fontSize = 17.sp, modifier = Modifier.weight(1f))
+        Text(title, color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Body, modifier = Modifier.weight(1f))
         if (value != null) Text(value, color = Sub, fontSize = 16.sp)
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Color(0xFF5A5A5E))
     }
@@ -200,7 +201,7 @@ fun SwitchRow(title: String, checked: Boolean, subtitle: String? = null, onChang
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 17.sp)
+            Text(title, color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Body)
             if (subtitle != null) Text(subtitle, color = Sub, fontSize = 13.sp)
         }
         Switch(
@@ -219,7 +220,7 @@ fun SliderRow(
     var local by remember(value) { mutableFloatStateOf(value) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Row {
-            Text(title, color = Color.White, fontSize = 17.sp, modifier = Modifier.weight(1f))
+            Text(title, color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Body, modifier = Modifier.weight(1f))
             Text(format(local), color = Sub, fontSize = 16.sp)
         }
         Slider(
@@ -241,7 +242,7 @@ fun PercentSlider(title: String, value: Float, range: ClosedFloatingPointRange<F
 @Composable
 fun <T> ChoiceRow(title: String, options: List<T>, selected: T, label: (T) -> String = { it.toString() }, onPick: (T) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 9.dp)) {
-        Text(title, color = Color.White, fontSize = 17.sp)
+        Text(title, color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Body)
         Chips(options, selected, label, onPick)
     }
 }
@@ -249,7 +250,7 @@ fun <T> ChoiceRow(title: String, options: List<T>, selected: T, label: (T) -> St
 @Composable
 fun ColorRow(title: String, value: Long, onPick: (Long) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 9.dp)) {
-        Text(title, color = Color.White, fontSize = 17.sp)
+        Text(title, color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Body)
         ColorPalette(value, onPick = onPick)
         HueSlider(value, onPick)
     }

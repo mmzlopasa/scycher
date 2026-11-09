@@ -80,7 +80,7 @@ fun WidgetPicker() {
     var tab by remember { mutableStateOf(0) }
     BottomSheet(state.widgetPicker, { state.widgetPicker = false }, maxWidth = 980) {
         Row(Modifier.padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Widgets", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text("Widgets", color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Title1, modifier = Modifier.weight(1f))
             Chips(listOf(0, 1), tab, { if (it == 0) "Scycher" else "Apps" }) { tab = it }
         }
         Box(Modifier.fillMaxWidth().heightIn(max = 620.dp)) {
@@ -103,7 +103,7 @@ private fun BuiltinGallery() {
             Column(
                 Modifier.clip(RoundedCornerShape(26.dp)).background(Color.White.copy(alpha = 0.06f)).padding(14.dp)
             ) {
-                Text(kind.label, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Text(kind.label, color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Headline)
                 Spacer(Modifier.height(10.dp))
                 Box(Modifier.fillMaxWidth().height(170.dp), contentAlignment = Alignment.Center) {
                     val unit = minOf(250f / size.first, 160f / size.second, 85f)
@@ -156,7 +156,7 @@ private fun SystemGallery() {
             textStyle = TextStyle(color = Color.White, fontSize = 16.sp), cursorBrush = SolidColor(Color.White),
             decorationBox = { inner ->
                 Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.1f)).padding(14.dp)) {
-                    if (query.isEmpty()) Text("Search apps", color = Color.White.copy(alpha = 0.5f), fontSize = 16.sp)
+                    if (query.isEmpty()) Text("Search apps", color = dev.scyde.scycher.ui.common.Palette2.Label3, fontSize = 16.sp)
                     inner()
                 }
             }
@@ -164,7 +164,7 @@ private fun SystemGallery() {
         LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(shown, key = { it.first + it.second.size }) { (label, list) ->
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Color.White.copy(alpha = 0.06f)).padding(12.dp)) {
-                    Text(label, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                    Text(label, color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Headline)
                     for (info in list) {
                         val (cw, ch) = cellsFor(info, state.cellSize.width, state.cellSize.height, state.cols, state.rows)
                         val preview by produceState<ImageBitmap?>(null, info.provider) {
@@ -189,7 +189,7 @@ private fun SystemGallery() {
                             Spacer(Modifier.width(14.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(info.loadLabel(app.packageManager) ?: "", color = Color.White, fontSize = 15.sp)
-                                Text("$cw × $ch", color = Color.White.copy(alpha = 0.55f), fontSize = 13.sp)
+                                Text("$cw × $ch", color = dev.scyde.scycher.ui.common.Palette2.Label3, fontSize = 13.sp)
                             }
                             GlassButton("", Icons.Rounded.Add) { state.host.addSystemWidget(info, cw, ch) }
                         }
@@ -219,7 +219,7 @@ fun WidgetSettingsSheet() {
         key(item.id) { Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
             Text(
                 item.builtin?.label ?: (ScycherApp.instance.widgets.info(item.widgetId)?.loadLabel(ScycherApp.instance.packageManager) ?: "Widget"),
-                color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp)
+                color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Title1, modifier = Modifier.padding(horizontal = 20.dp)
             )
             if (item.type == ItemType.Widget) {
                 SectionTitle("Style")
@@ -267,8 +267,7 @@ fun WidgetSettingsSheet() {
                         SectionTitle("Widgets in this stack (tap to add/remove)")
                         val selected = stackKinds(item)
                         Box(Modifier.padding(horizontal = 16.dp)) {
-                            Chips<BuiltinKind?>(Stackable, null, { k -> (if (k in selected) "✓ " else "") + (k?.label ?: "") }) { k ->
-                                if (k == null) return@Chips
+                            dev.scyde.scycher.ui.common.MultiChips(Stackable, selected.toSet(), { it.label }) { k ->
                                 val next = if (k in selected) selected - k else selected + k
                                 put("kinds", next.ifEmpty { listOf(BuiltinKind.ClockDigital) }.joinToString(",") { it.name })
                             }
@@ -299,7 +298,7 @@ fun WidgetSettingsSheet() {
             } else {
                 Text(
                     "System widget glass, corners and blur are set globally in Settings › Widgets.",
-                    color = Color.White.copy(alpha = 0.65f), fontSize = 14.sp, modifier = Modifier.padding(20.dp)
+                    color = dev.scyde.scycher.ui.common.Palette2.Label2, fontSize = 14.sp, modifier = Modifier.padding(20.dp)
                 )
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

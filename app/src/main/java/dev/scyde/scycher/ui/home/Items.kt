@@ -60,6 +60,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -77,6 +81,7 @@ import dev.scyde.scycher.ui.common.fontFamilyOf
 import dev.scyde.scycher.ui.common.glass
 import dev.scyde.scycher.ui.common.toColor
 import kotlin.math.abs
+import kotlinx.coroutines.launch
 
 val LocalBadges = staticCompositionLocalOf<Map<String, Int>> { emptyMap() }
 val LocalLauncher = staticCompositionLocalOf<LauncherState> { error("no launcher") }
@@ -125,12 +130,24 @@ fun Modifier.itemGestures(
     val tap by rememberUpdatedState(onTap)
     val edit = state.editMode && source !is DragSource.Library
     val haptics = LocalConfig.current.gestures.haptics
+    // Feedback on touch-down, not on release (Apple: "respond instantly").
+    val pressTarget = LocalConfig.current.icons.pressScale
+    val press = remember { androidx.compose.animation.core.Animatable(1f) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     this
         .onGloballyPositioned {
             holder.root = it.boundsInRoot(); holder.window = it.boundsInWindow(); holder.size = it.size
         }
+        .graphicsLayer { scaleX = press.value; scaleY = press.value }
         .pointerInput(item.id, source) {
-            detectTapGestures(onTap = { tap(holder.window.toAndroid()) })
+            detectTapGestures(
+                onPress = {
+                    scope.launch { press.animateTo(pressTarget, dev.scyde.scycher.ui.common.Motion.press()) }
+                    tryAwaitRelease()
+                    scope.launch { press.animateTo(1f, dev.scyde.scycher.ui.common.Motion.ui()) }
+                },
+                onTap = { tap(holder.window.toAndroid()) },
+            )
         }
         .pointerInput(item.id, source, edit) {
             if (edit) {
@@ -175,7 +192,7 @@ fun Modifier.swipeZone(item: HomeItem): Modifier = composed {
 
 /** Jiggle like iOS edit mode. */
 fun Modifier.jiggle(enabled: Boolean, seed: Long): Modifier = composed {
-    if (!enabled) return@composed this
+    if (!enabled || dev.scyde.scycher.ui.common.LocalReduceMotion.current) return@composed this
     val t = rememberInfiniteTransition(label = "jiggle")
     val dur = 240 + (abs(seed) % 60).toInt()
     val r by t.animateFloat(-1.4f, 1.4f, infiniteRepeatable(tween(dur), RepeatMode.Reverse), label = "rot")
@@ -224,12 +241,6 @@ fun Badge(count: Int, iconSize: Dp, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun PressScale(pressed: Boolean): Float {
-    val target = if (pressed) LocalConfig.current.icons.pressScale else 1f
-    return animateFloatAsState(target, spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMedium), label = "press").value
-}
-
-@Composable
 fun AppIcon(
     key: String,
     iconSize: Dp,
@@ -243,7 +254,11 @@ fun AppIcon(
     val badges = LocalBadges.current
     val pkg = key.substringBefore('/')
     val cfg = LocalConfig.current
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+    val label = labelOverride ?: (cfg.customLabels[key] ?: repo.map.collectAsState().value[key]?.label ?: "")
+    Column(
+        modifier.semantics(mergeDescendants = true) { if (!showLabel) contentDescription = label },
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
         Box {
             IconImage(img, iconSize)
             Badge(badges[pkg] ?: 0, iconSize, Modifier.align(Alignment.TopEnd).offset(x = iconSize * 0.12f, y = -iconSize * 0.08f))
@@ -296,15 +311,20 @@ fun FolderIcon(item: HomeItem, iconSize: Dp, showLabel: Boolean, modifier: Modif
 /** Little "−" button in edit mode. */
 @Composable
 fun RemoveButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    // 24dp visual, 44dp touch target (offset so the visual still sits on the item's corner).
     Box(
         modifier
-            .size(24.dp)
-            .clip(CircleShape)
-            .glass(CircleShape, SurfaceStyle.Frosted, Color(0xFF3A3A3C), 0.85f, true, 0.3f)
+            .offset((-10).dp, (-10).dp)
+            .size(44.dp)
+            .semantics { contentDescription = "Remove"; role = Role.Button }
             .pointerInput(Unit) { detectTapGestures { onClick() } },
         contentAlignment = Alignment.Center
     ) {
-        Icon(Icons.Rounded.Remove, null, tint = Color.White, modifier = Modifier.size(16.dp))
+        Box(
+            Modifier.size(24.dp).clip(CircleShape)
+                .glass(CircleShape, SurfaceStyle.Frosted, Color(0xFF3A3A3C), 0.85f, true, 0.3f),
+            contentAlignment = Alignment.Center
+        ) { Icon(Icons.Rounded.Remove, null, tint = Color.White, modifier = Modifier.size(16.dp)) }
     }
 }
 

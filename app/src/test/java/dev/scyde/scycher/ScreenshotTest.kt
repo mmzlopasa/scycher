@@ -165,6 +165,35 @@ class LauncherScreenshotTest {
         }
         settle(1500)
         shot("23_clear_icons")
+
+        // --- break-ui: worst-case data ---
+        rule.runOnUiThread {
+            app.store.update { c ->
+                val W = dev.scyde.scycher.data.ItemType.Widget
+                val longNote = "Ponedjeljak: nazvati Aleksandru Wiśniewsku-Kowalczyk oko ugovora. ".repeat(40)
+                c.copy(
+                    icons = c.icons.copy(style = dev.scyde.scycher.data.IconStyle.Default),
+                    widgets = c.widgets.copy(
+                        weatherCity = "Llanfairpwllgwyngyllgogerychwyrndrobwllllantysiliogogogoch",
+                        worldClocks = listOf("America/Argentina/ComodRivadavia", "Pacific/Port_Moresby", "Not/AZone", "Asia/Ho_Chi_Minh"),
+                    ),
+                    layout = c.layout.copy(pages = c.layout.pages + dev.scyde.scycher.data.HomePage(app.store.newId(), listOf(
+                        dev.scyde.scycher.data.HomeItem(app.store.newId(), W, 0, 0, 4, 1, builtin = dev.scyde.scycher.data.BuiltinKind.Greeting,
+                            extra = mapOf("name" to "Aleksandra Wiśniewska-Kowalczyk von Oberhauser-Wettstein")),
+                        dev.scyde.scycher.data.HomeItem(app.store.newId(), W, 0, 1, 2, 2, builtin = dev.scyde.scycher.data.BuiltinKind.Note,
+                            extra = mapOf("title" to "Benachrichtigungseinstellungen und Datenschutzerklärung", "note" to longNote)),
+                        dev.scyde.scycher.data.HomeItem(app.store.newId(), W, 2, 1, 2, 2, builtin = dev.scyde.scycher.data.BuiltinKind.Weather),
+                        dev.scyde.scycher.data.HomeItem(app.store.newId(), W, 4, 0, 2, 3, builtin = dev.scyde.scycher.data.BuiltinKind.WorldClock),
+                        dev.scyde.scycher.data.HomeItem(app.store.newId(), dev.scyde.scycher.data.ItemType.Folder, 0, 4, name = "Paramètres de confidentialité et de sécurité", apps = listOf("x/y", "a/b")),
+                        dev.scyde.scycher.data.HomeItem(app.store.newId(), W, 1, 3, 1, 1, builtin = dev.scyde.scycher.data.BuiltinKind.Calendar),
+                    )))
+                )
+            }
+        }
+        settle(800)
+        rule.runOnUiThread { state.scope.launch { state.pager.scrollToPage(state.store.value.layout.pages.lastIndex) } }
+        settle(1500)
+        shot("24_break_ui")
     }
 }
 

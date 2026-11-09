@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
@@ -74,6 +75,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -112,31 +115,81 @@ import kotlinx.coroutines.withContext
 @Composable
 fun ContextMenu() {
     val state = LocalLauncher.current
+    val cfg = LocalConfig.current
     val m = state.menu
     val last = remember { MutableBox<MenuRequest?>(null) }
     if (m != null) last.value = m
-    Scrim(m != null, 0.22f) { state.menu = null }
+    val progress by animateFloatAsState(
+        if (m != null) 1f else 0f,
+        if (m != null) dev.scyde.scycher.ui.common.Motion.ui() else dev.scyde.scycher.ui.common.Motion.exit(),
+        label = "menu",
+    )
+    if (m == null && progress <= 0.001f) return
     val req = last.value ?: return
     val density = LocalDensity.current
-    AnimatedVisibility(
-        m != null,
-        enter = fadeIn(spring(stiffness = 900f)) + scaleIn(spring(dampingRatio = 0.75f, stiffness = 700f), 0.85f),
-        exit = fadeOut(spring(stiffness = 1200f)) + scaleOut(targetScale = 0.9f),
-    ) {
-        Layout(
-            content = { MenuCard(req) },
-            modifier = Modifier.fillMaxSize(),
-        ) { ms, c ->
-            val p = ms[0].measure(Constraints(maxWidth = c.maxWidth, maxHeight = c.maxHeight))
-            val margin = with(density) { 16.dp.roundToPx() }
-            val gap = with(density) { 10.dp.roundToPx() }
-            val a = req.anchor
-            layout(c.maxWidth, c.maxHeight) {
-                val x = (a.center.x - p.width / 2f).toInt().coerceIn(margin, (c.maxWidth - p.width - margin).coerceAtLeast(margin))
-                val below = a.bottom.toInt() + gap
-                val y = if (below + p.height < c.maxHeight - margin) below else (a.top.toInt() - gap - p.height).coerceAtLeast(margin)
-                p.place(x, y)
-            }
+    val wp = LocalWallpaper.current
+    val geo = LocalWallpaperGeometry.current
+    val filter = rememberSaturationFilter()
+    val pivot = remember { floatArrayOf(0.5f, 0f) }
+
+    // iOS context menus blur everything behind them; tapping it dismisses.
+    Box(
+        Modifier.fillMaxSize()
+            .graphicsLayer { alpha = progress }
+            .drawBehind { drawBlurBackdrop(wp, geo, 1f, 0.16f, filter) }
+            .pointerInput(m != null) { if (m != null) detectTapGestures { state.menu = null } }
+    )
+
+    // The pressed item stays sharp and lifts above the blur.
+    val item = req.item
+    if (item != null && item.type != ItemType.SystemWidget) {
+        val a = req.anchor
+        val iconSize = when (req.source) {
+            DragSource.Dock -> cfg.dock.iconSizeDp
+            DragSource.Library -> cfg.library.iconSizeDp
+            else -> cfg.icons.sizeDp
+        }.dp
+        val showLabel = when (req.source) {
+            DragSource.Dock -> cfg.dock.showLabels
+            DragSource.Library -> cfg.library.showLabels
+            else -> cfg.home.showLabels
+        }
+        Box(
+            Modifier
+                .offset { androidx.compose.ui.unit.IntOffset(a.left.toInt(), a.top.toInt()) }
+                .size(with(density) { a.width.toDp() }, with(density) { a.height.toDp() })
+                .graphicsLayer { val s = 1f + 0.05f * progress; scaleX = s; scaleY = s },
+            contentAlignment = Alignment.Center,
+        ) {
+            ItemVisual(item, iconSize, showLabel, if (item.isWidget) Modifier.fillMaxSize() else Modifier, preview = true)
+        }
+    }
+
+    Layout(
+        content = {
+            Box(
+                Modifier.graphicsLayer {
+                    alpha = progress
+                    val s = 0.9f + 0.1f * progress // never from 0 – grows out of the item
+                    scaleX = s; scaleY = s
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(pivot[0], pivot[1])
+                }
+            ) { MenuCard(req) }
+        },
+        modifier = Modifier.fillMaxSize(),
+    ) { ms, c ->
+        val p = ms[0].measure(Constraints(maxWidth = c.maxWidth, maxHeight = c.maxHeight))
+        val margin = with(density) { 16.dp.roundToPx() }
+        val gap = with(density) { 12.dp.roundToPx() }
+        val a = req.anchor
+        layout(c.maxWidth, c.maxHeight) {
+            val x = (a.center.x - p.width / 2f).toInt().coerceIn(margin, (c.maxWidth - p.width - margin).coerceAtLeast(margin))
+            val below = a.bottom.toInt() + gap
+            val placeBelow = below + p.height < c.maxHeight - margin
+            val y = if (placeBelow) below else (a.top.toInt() - gap - p.height).coerceAtLeast(margin)
+            pivot[0] = ((a.center.x - x) / p.width.coerceAtLeast(1)).coerceIn(0f, 1f)
+            pivot[1] = if (placeBelow) 0f else 1f
+            p.place(x, y)
         }
     }
 }
@@ -303,6 +356,7 @@ fun FolderOverlay() {
         apps = folder?.apps ?: emptyList(),
         source = folder?.let { DragSource.Folder(it.id) } ?: DragSource.Library,
         hidden = dragging,
+        anchor = state.folderAnchor,
         onTitle = { folder?.let { state.rename = RenameTarget.Folder(it.id) } },
         onDismiss = { state.openFolderId = null },
     )
@@ -331,13 +385,20 @@ private fun AppsPanel(
     hidden: Boolean,
     onTitle: (() -> Unit)?,
     onDismiss: () -> Unit,
+    anchor: androidx.compose.ui.geometry.Rect? = null,
 ) {
+    val reduce = dev.scyde.scycher.ui.common.LocalReduceMotion.current
+    val panelBounds = remember { MutableBox(androidx.compose.ui.geometry.Rect.Zero) }
     val state = LocalLauncher.current
     val cfg = LocalConfig.current
     val wp = LocalWallpaper.current
     val geo = LocalWallpaperGeometry.current
     val filter = rememberSaturationFilter()
-    val a by animateFloatAsState(if (visible && !hidden) 1f else 0f, spring(stiffness = 500f), label = "panel")
+    val a by animateFloatAsState(
+        if (visible && !hidden) 1f else 0f,
+        if (visible && !hidden) dev.scyde.scycher.ui.common.Motion.ui() else dev.scyde.scycher.ui.common.Motion.exit(),
+        label = "panel",
+    )
     if (a <= 0.001f && !visible) return
     Box(
         Modifier
@@ -348,11 +409,27 @@ private fun AppsPanel(
         contentAlignment = Alignment.Center,
     ) {
         Column(
-            Modifier.systemBarsPadding().graphicsLayer { val s = 0.85f + 0.15f * a; scaleX = s; scaleY = s },
+            Modifier.systemBarsPadding()
+                .onGloballyPositioned { panelBounds.value = it.boundsInRoot() }
+                .graphicsLayer {
+                    // Grow out of the folder icon and shrink back into it (same path both ways).
+                    val pb = panelBounds.value
+                    if (anchor != null && !reduce && pb.width > 0f) {
+                        val s0 = (anchor.width / pb.width).coerceIn(0.12f, 0.9f)
+                        val s = s0 + (1f - s0) * a
+                        scaleX = s; scaleY = s
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(
+                            ((anchor.center.x - pb.left) / pb.width).coerceIn(-1f, 2f),
+                            ((anchor.center.y - pb.top) / pb.height).coerceIn(-1f, 2f),
+                        )
+                    } else if (!reduce) {
+                        val s = 0.94f + 0.06f * a; scaleX = s; scaleY = s
+                    }
+                },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                title, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold,
+                title, color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Title1,
                 modifier = Modifier
                     .padding(bottom = 18.dp)
                     .then(if (onTitle != null) Modifier.clickable { onTitle() } else Modifier)
@@ -415,7 +492,7 @@ fun RenameDialog() {
     }
     CenterDialog(t != null, { state.rename = null }) {
         Column {
-            Text("Rename", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text("Rename", color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Title3)
             Spacer(Modifier.height(14.dp))
             BasicTextField(
                 text, { text = it },
@@ -472,7 +549,7 @@ fun Onboarding() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("SCYCHER", color = Color.White, fontSize = 44.sp, fontWeight = FontWeight.Black, letterSpacing = 6.sp)
-            Text("by SCYDE · scyde.dev", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp, letterSpacing = 1.sp)
+            Text("by SCYDE · scyde.dev", color = dev.scyde.scycher.ui.common.Palette2.Label2, fontSize = 14.sp, letterSpacing = 1.sp)
             Spacer(Modifier.height(12.dp))
             Text(
                 "Your home screen, every pixel your way. Three quick steps and you're done.",
@@ -511,8 +588,8 @@ private fun Step(title: String, subtitle: String, done: Boolean, accent: Color, 
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
+            Text(title, color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Headline.copy(fontSize = 16.sp))
+            Text(subtitle, color = dev.scyde.scycher.ui.common.Palette2.Label2, fontSize = 13.sp)
         }
     }
 }

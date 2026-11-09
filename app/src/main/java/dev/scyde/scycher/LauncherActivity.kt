@@ -112,7 +112,7 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
         }
 
         // UI scope must carry Compose's frame clock so Animatable/pager animations can run
-        state = LauncherState(app, CoroutineScope(lifecycleScope.coroutineContext + AndroidUiDispatcher.Main), this)
+        state = LauncherState(app, CoroutineScope(lifecycleScope.coroutineContext + AndroidUiDispatcher.Main + motionScale), this)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { state.closeOverlays() }
@@ -172,6 +172,19 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
         } catch (_: Throwable) {}
     }
 
+    /** Android's "Remove animations" (developer options / accessibility) sets the animator scale to 0. */
+    fun reduceMotion(): Boolean =
+        android.provider.Settings.Global.getFloat(contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+
+    /** Launcher transitions follow Scycher's "Animation speed" and the system animation scale. */
+    private val motionScale = object : androidx.compose.ui.MotionDurationScale {
+        override val scaleFactor: Float
+            get() {
+                val sys = android.provider.Settings.Global.getFloat(contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+                return if (sys == 0f) 0f else sys / app.store.value.look.animationSpeed.coerceIn(0.25f, 4f)
+            }
+    }
+
     override fun onStart() {
         super.onStart()
         app.widgets.start()
@@ -184,9 +197,9 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
         app.weather.refreshIfStale()
         if (wentAway) {
             wentAway = false
-            if (app.store.value.home.returnAnimation) state.scope.launch {
+            if (app.store.value.home.returnAnimation && !reduceMotion()) state.scope.launch {
                 state.enter.snapTo(0f)
-                state.enter.animateTo(1f, spring(dampingRatio = 0.82f, stiffness = 260f * app.store.value.look.animationSpeed))
+                state.enter.animateTo(1f, dev.scyde.scycher.ui.common.Motion.ui())
             }
         }
     }

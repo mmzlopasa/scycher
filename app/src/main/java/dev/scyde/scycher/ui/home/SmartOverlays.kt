@@ -108,14 +108,14 @@ fun AppChooserOverlay() {
                 Modifier.widthIn(max = 460.dp).fillMaxWidth().padding(24.dp).panelGlass()
                     .pointerInput(Unit) { detectTapGestures { } }.padding(18.dp)
             ) {
-                Text(r.title, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Text(r.title, color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Title3)
                 Spacer(Modifier.size(12.dp))
                 BasicTextField(
                     q, { q = it }, singleLine = true,
                     textStyle = TextStyle(color = Color.White, fontSize = 16.sp), cursorBrush = SolidColor(Color.White),
                     decorationBox = { inner ->
                         Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.1f)).padding(12.dp)) {
-                            if (q.isEmpty()) Text("Search", color = Color.White.copy(alpha = 0.5f), fontSize = 16.sp)
+                            if (q.isEmpty()) Text("Search", color = dev.scyde.scycher.ui.common.Palette2.Label3, fontSize = 16.sp)
                             inner()
                         }
                     }
@@ -160,8 +160,8 @@ fun CategoryChooser() {
     }
     CenterDialog(key != null, { state.categoryFor = null }) {
         Column {
-            Text("Category", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text(key?.let { ScycherApp.instance.apps.label(it) } ?: "", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
+            Text("Category", color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Title3)
+            Text(key?.let { ScycherApp.instance.apps.label(it) } ?: "", color = dev.scyde.scycher.ui.common.Palette2.Label2, fontSize = 14.sp)
             Spacer(Modifier.size(10.dp))
             LazyColumn(Modifier.heightIn(max = 340.dp)) {
                 items(all) { c ->
@@ -178,7 +178,7 @@ fun CategoryChooser() {
                     textStyle = TextStyle(color = Color.White, fontSize = 16.sp), cursorBrush = SolidColor(Color.White),
                     decorationBox = { inner ->
                         Box(Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.1f)).padding(12.dp)) {
-                            if (newName.isEmpty()) Text("New category", color = Color.White.copy(alpha = 0.5f), fontSize = 16.sp)
+                            if (newName.isEmpty()) Text("New category", color = dev.scyde.scycher.ui.common.Palette2.Label3, fontSize = 16.sp)
                             inner()
                         }
                     },

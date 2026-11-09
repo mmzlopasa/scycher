@@ -155,15 +155,16 @@ fun ControlCenter() {
     BackHandler(state.controlCenter) { state.controlCenter = false }
     val tick = state.resumeTick
 
-    AnimatedVisibility(state.controlCenter, enter = fadeIn(spring(stiffness = 600f)), exit = fadeOut(spring(stiffness = 800f))) {
+    AnimatedVisibility(state.controlCenter, enter = fadeIn(dev.scyde.scycher.ui.common.Motion.ui()), exit = fadeOut(dev.scyde.scycher.ui.common.Motion.exit())) {
         Box(
             Modifier.fillMaxSize().drawBehind { drawBlurBackdrop(wp, geo, 1f, 0.3f, filter) }
                 .pointerInput(Unit) { detectTapGestures { state.controlCenter = false } }
         ) {
             androidx.compose.animation.AnimatedVisibility(
                 true, Modifier.align(Alignment.TopEnd),
-                enter = slideInVertically(spring(dampingRatio = 0.8f, stiffness = 400f)) { -it / 3 },
-                exit = slideOutVertically { -it / 3 },
+                // Grows out of the top-right corner, where the finger pulled it from; leaves the same way.
+                enter = androidx.compose.animation.scaleIn(dev.scyde.scycher.ui.common.Motion.ui(), 0.9f, androidx.compose.ui.graphics.TransformOrigin(1f, 0f)),
+                exit = androidx.compose.animation.scaleOut(dev.scyde.scycher.ui.common.Motion.exit(), 0.9f, androidx.compose.ui.graphics.TransformOrigin(1f, 0f)),
             ) {
                 val u = 84.dp; val gap = 14.dp
                 Column(
@@ -207,7 +208,7 @@ fun ControlCenter() {
                     }
                     if (!SystemControls.canWrite(ctx)) Text(
                         "Tap brightness to allow Scycher to change brightness & rotation.",
-                        color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp, modifier = Modifier.padding(horizontal = 6.dp)
+                        color = dev.scyde.scycher.ui.common.Palette2.Label2, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 6.dp)
                     )
                 }
             }
@@ -277,7 +278,7 @@ private fun NowPlayingModule(size: Dp) {
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(np?.title?.ifEmpty { null } ?: "Not Playing", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(np?.artist ?: "", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(np?.artist ?: "", color = dev.scyde.scycher.ui.common.Palette2.Label2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             Spacer(Modifier.weight(1f))

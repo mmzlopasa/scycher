@@ -79,8 +79,10 @@ fun Dock(modifier: Modifier = Modifier) {
             horizontalArrangement = if (d.fullWidth) Arrangement.SpaceEvenly else Arrangement.spacedBy(d.iconSpacingDp.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
-            if (items.isEmpty() && recents.isEmpty()) {
-                Box(Modifier.width(220.dp).height(d.iconSizeDp.dp))
+            if (items.isEmpty() && recents.isEmpty() && (state.editMode || !d.libraryButton)) {
+                Box(Modifier.height(d.iconSizeDp.dp).padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.Text("Drag apps here", style = dev.scyde.scycher.ui.common.TypeScale.Subhead, color = dev.scyde.scycher.ui.common.Palette2.Label2)
+                }
             }
             items.forEachIndexed { i, item ->
                 DockSlot(item, d.iconSizeDp, d.showLabels, touchX, iconPx, DragSource.Dock,
@@ -142,7 +144,7 @@ private fun DockSlot(
             .swipeZone(item)
             .itemGestures(item, source) { bounds ->
                 when (item.type) {
-                    ItemType.Folder -> state.openFolderId = item.id
+                    ItemType.Folder -> state.openFolder(item.id, bounds)
                     else -> if (!state.editMode) item.app?.let { state.launch(it, bounds) }
                 }
             }

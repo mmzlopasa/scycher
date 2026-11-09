@@ -249,7 +249,7 @@ fun AppLibrary() {
                 Icon(Icons.Rounded.Search, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) Text("Search apps", color = Color.White.copy(alpha = 0.55f), fontSize = 17.sp)
+                    if (query.isEmpty()) Text("Search apps", color = dev.scyde.scycher.ui.common.Palette2.Label3, style = dev.scyde.scycher.ui.common.TypeScale.Body)
                     BasicTextField(
                         query, { state.libraryQuery = it },
                         singleLine = true,
@@ -368,7 +368,7 @@ private fun TabsLibrary(apps: List<AppInfo>, suggestions: List<AppInfo>, modifie
 
 @Composable
 private fun Header(text: String) {
-    Text(text, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp, top = 6.dp))
+    Text(text, color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Title3, modifier = Modifier.padding(start = 6.dp, top = 6.dp))
 }
 
 @Composable
@@ -387,7 +387,7 @@ private fun ListLibrary(apps: List<AppInfo>, modifier: Modifier) {
         LazyColumn(Modifier.weight(1f), ls, contentPadding = PaddingValues(start = 24.dp, end = 8.dp, bottom = 40.dp)) {
             groups.forEach { (letter, list) ->
                 item(key = "h$letter") {
-                    Text(letter, color = Color.White.copy(alpha = 0.55f), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+                    Text(letter, color = dev.scyde.scycher.ui.common.Palette2.Label3, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
                 }
                 items(list, key = { it.key }) { app ->
                     val item = remember(app.key) { HomeItem(-(app.key.hashCode().toLong() and 0xFFFFFFF) - 1000, ItemType.App, app = app.key) }
@@ -518,7 +518,7 @@ private fun SearchResults(results: List<AppInfo>, query: String, modifier: Modif
             ) {
                 Icon(Icons.Rounded.Calculate, null, tint = cfg.look.accentColor.toColor(), modifier = Modifier.size(26.dp))
                 Spacer(Modifier.width(16.dp))
-                Text(query.trim(), color = Color.White.copy(alpha = 0.6f), fontSize = 18.sp, modifier = Modifier.weight(1f))
+                Text(query.trim(), color = dev.scyde.scycher.ui.common.Palette2.Label2, fontSize = 18.sp, modifier = Modifier.weight(1f))
                 Text("= $calc", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Light)
             }
         }
@@ -539,7 +539,7 @@ private fun SearchResults(results: List<AppInfo>, query: String, modifier: Modif
                             icon?.let { androidx.compose.foundation.Image(it, null, Modifier.size(26.dp)) } ?: Spacer(Modifier.size(26.dp))
                             Spacer(Modifier.width(14.dp))
                             Text((sh.shortLabel ?: sh.longLabel ?: "").toString(), color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f))
-                            Text(repo.map.value.values.firstOrNull { it.pkg == sh.`package` }?.label ?: "", color = Color.White.copy(alpha = 0.5f), fontSize = 13.sp)
+                            Text(repo.map.value.values.firstOrNull { it.pkg == sh.`package` }?.label ?: "", color = dev.scyde.scycher.ui.common.Palette2.Label3, fontSize = 13.sp)
                         }
                         if (i < shortcuts.lastIndex) Box(Modifier.fillMaxWidth().height(0.6.dp).background(Color.White.copy(alpha = 0.12f)))
                     }

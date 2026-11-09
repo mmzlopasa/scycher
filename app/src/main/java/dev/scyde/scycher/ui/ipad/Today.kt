@@ -103,8 +103,8 @@ fun TodayView() {
         ) {
             val now = remember { ZonedDateTime.now() }
             Column {
-                Text(now.format(DateTimeFormatter.ofPattern("EEEE")), color = Color.White.copy(alpha = 0.75f), fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-                Text(now.format(DateTimeFormatter.ofPattern("d MMMM")), color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold)
+                Text(now.format(DateTimeFormatter.ofPattern("EEEE")), color = Color.White.copy(alpha = 0.75f), style = dev.scyde.scycher.ui.common.TypeScale.Title3)
+                Text(now.format(DateTimeFormatter.ofPattern("d MMMM")), color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.LargeTitle.copy(fontSize = 40.sp, lineHeight = 46.sp))
             }
             val unit = panelW / 4
             val items = cfg.layout.today
@@ -169,7 +169,7 @@ fun CustomizeSheet() {
     fun icons(block: (dev.scyde.scycher.data.IconConfig) -> dev.scyde.scycher.data.IconConfig) =
         state.store.update { it.copy(icons = block(it.icons)) }
     BottomSheet(state.customize, { state.customize = false }) {
-        Text("Customize", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp))
+        Text("Customize", color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Title1, modifier = Modifier.padding(horizontal = 20.dp))
         SectionTitle("Appearance")
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
             for (style in listOf(IconStyle.Default, IconStyle.Dark, IconStyle.Clear, IconStyle.Tinted, IconStyle.Auto)) {

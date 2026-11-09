@@ -96,7 +96,7 @@ data class IconConfig(
     val legacyBackground: Long = 0xFFFFFFFF,
     val badgeStyle: BadgeStyle = BadgeStyle.Count,
     val badgeColor: Long = 0xFFFF3B30,
-    val pressScale: Float = 0.88f,
+    val pressScale: Float = 0.92f,
     val glassRim: Boolean = false,
 )
 
@@ -123,7 +123,7 @@ data class DockConfig(
     val recentsCount: Int = 3,
     val fullWidth: Boolean = false,
     val shadow: Boolean = true,
-    val magnify: Boolean = true,
+    val magnify: Boolean = false,
     /** iPad-style App Library button at the end of the dock. */
     val libraryButton: Boolean = true,
 )

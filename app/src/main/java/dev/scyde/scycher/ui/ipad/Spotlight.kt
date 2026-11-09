@@ -104,7 +104,7 @@ fun Spotlight() {
     val keyboard = LocalSoftwareKeyboardController.current
     BackHandler(state.spotlight) { state.spotlight = false }
 
-    AnimatedVisibility(state.spotlight, enter = fadeIn(spring(stiffness = 700f)), exit = fadeOut(spring(stiffness = 900f))) {
+    AnimatedVisibility(state.spotlight, enter = fadeIn(dev.scyde.scycher.ui.common.Motion.ui()), exit = fadeOut(dev.scyde.scycher.ui.common.Motion.exit())) {
         LaunchedEffect(Unit) { runCatching { focus.requestFocus(); keyboard?.show() } }
         val visible = remember(apps, cfg.hiddenApps, cfg.customLabels) {
             apps.filter { it.key !in cfg.hiddenApps }.map { a -> cfg.customLabels[a.key]?.let { a.copy(label = it) } ?: a }
@@ -130,6 +130,11 @@ fun Spotlight() {
         ) {
             Column(
                 Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 40.dp).widthIn(max = 680.dp).fillMaxWidth()
+                    // pulled down: the field drops in from slightly above, following the gesture
+                    .animateEnterExit(
+                        enter = androidx.compose.animation.slideInVertically(dev.scyde.scycher.ui.common.Motion.ui()) { -it / 12 },
+                        exit = androidx.compose.animation.slideOutVertically(dev.scyde.scycher.ui.common.Motion.exit()) { -it / 12 },
+                    )
                     .padding(horizontal = 20.dp).imePadding(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -142,7 +147,7 @@ fun Spotlight() {
                     Icon(Icons.Rounded.Search, null, tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.size(22.dp))
                     Spacer(Modifier.width(12.dp))
                     Box(Modifier.weight(1f)) {
-                        if (q.isEmpty()) Text("Search", color = Color.White.copy(alpha = 0.55f), fontSize = 19.sp)
+                        if (q.isEmpty()) Text("Search", color = dev.scyde.scycher.ui.common.Palette2.Label3, fontSize = 19.sp)
                         BasicTextField(
                             q, { state.spotlightQuery = it }, singleLine = true,
                             textStyle = TextStyle(color = Color.White, fontSize = 19.sp),
@@ -169,11 +174,11 @@ fun Spotlight() {
                         Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Calculate, null, tint = cfg.look.accentColor.toColor(), modifier = Modifier.size(28.dp))
                             Spacer(Modifier.width(14.dp))
-                            Text(q, color = Color.White.copy(alpha = 0.6f), fontSize = 18.sp, modifier = Modifier.weight(1f))
+                            Text(q, color = dev.scyde.scycher.ui.common.Palette2.Label2, fontSize = 18.sp, modifier = Modifier.weight(1f))
                             Text("= $calc", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Light)
                         }
                     }
-                    if (hits.isNotEmpty()) Card(if (q.isBlank()) "Siri-style suggestions" else "Top hits") {
+                    if (hits.isNotEmpty()) Card(if (q.isBlank()) "Suggestions" else "Top hits") {
                         val cols = 8
                         for (row in hits.chunked(cols)) Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)) {
                             for (a in row) Box(
@@ -216,7 +221,7 @@ fun Spotlight() {
 private fun Card(title: String? = null, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth().panelGlass(70f).padding(vertical = 8.dp)) {
         if (title != null) Text(
-            title, color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            title, color = dev.scyde.scycher.ui.common.Palette2.Label2, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp)
         )
         content()
@@ -235,6 +240,6 @@ private fun ResultRow(icon: ImageVector?, image: ImageBitmap?, title: String, su
         }
         Spacer(Modifier.width(14.dp))
         Text(title, color = Color.White, fontSize = 16.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        if (subtitle != null) Text(subtitle, color = Color.White.copy(alpha = 0.5f), fontSize = 13.sp)
+        if (subtitle != null) Text(subtitle, color = dev.scyde.scycher.ui.common.Palette2.Label3, fontSize = 13.sp)
     }
 }

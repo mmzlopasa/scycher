@@ -186,7 +186,7 @@ private fun CommandBox(cmd: String) {
 @Composable
 private fun StatusRow(title: String, ok: Boolean, okText: String = "Active", offText: String = "Not active") {
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, color = Color.White, fontSize = 17.sp, modifier = Modifier.weight(1f))
+        Text(title, color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Body, modifier = Modifier.weight(1f))
         Icon(if (ok) Icons.Rounded.CheckCircle else Icons.Rounded.Error, null, tint = if (ok) Color(0xFF30D158) else Color(0xFFFF9F0A), modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(6.dp))
         Text(if (ok) okText else offText, color = if (ok) Color(0xFF30D158) else Color(0xFFFF9F0A), fontSize = 15.sp)
@@ -351,7 +351,7 @@ private fun GestureRow(title: String, action: GestureAction, app: String?, onAct
     val label = if (action == GestureAction.LaunchApp) ScycherApp.instance.apps.label(app ?: "").ifEmpty { "Choose app" } else null
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 9.dp)) {
         Row {
-            Text(title, color = Color.White, fontSize = 17.sp, modifier = Modifier.weight(1f))
+            Text(title, color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Body, modifier = Modifier.weight(1f))
             if (label != null) Text(label, color = LocalConfig.current.look.accentColor.toColor(), fontSize = 15.sp, modifier = Modifier.clickable { onPickApp() })
         }
         dev.scyde.scycher.ui.common.Chips(GestureAction.entries.toList(), action, { it.label }) {
@@ -599,7 +599,7 @@ fun WidgetSettings() {
         }
         Group("Weather", footer = "Powered by Open-Meteo. No account or location permission needed.") {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                Text("City", color = Color.White, fontSize = 17.sp, modifier = Modifier.weight(1f))
+                Text("City", color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Body, modifier = Modifier.weight(1f))
                 Text(w.weatherCity, color = Sub, fontSize = 16.sp)
             }
             Divider()
