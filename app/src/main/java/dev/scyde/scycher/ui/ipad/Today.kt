@@ -80,7 +80,6 @@ fun TodayView() {
     val filter = rememberSaturationFilter()
     val panelW = 420.dp
     val panelPx = with(LocalDensity.current) { panelW.toPx() }
-    BackHandler(p > 0f) { state.closeToday() }
 
     Box(
         Modifier.fillMaxSize()

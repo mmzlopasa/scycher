@@ -745,7 +745,7 @@ fun AppearanceSettings() {
     fun set(block: (dev.scyde.scycher.data.LookConfig) -> dev.scyde.scycher.data.LookConfig) = update { it.copy(look = block(it.look)) }
     val wallpaper = ScycherApp.instance.wallpaper
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) scope.launch { wallpaper.setFromUri(uri, alsoSystem = true) }
+        if (uri != null) scope.launch { wallpaper.setFromUri(uri, alsoSystem = l.wallpaperSetSystem) }
     }
     Page("Appearance") {
         Group("Wallpaper", footer = "“Scycher” draws the wallpaper itself so every glass surface gets real blur. “System” keeps the HyperOS wallpaper; glass falls back to a frosted tint if Android doesn't allow reading it.") {

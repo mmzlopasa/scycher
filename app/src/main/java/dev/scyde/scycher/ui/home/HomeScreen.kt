@@ -290,7 +290,7 @@ private fun Modifier.homeGestures(state: LauncherState): Modifier = composed {
                                 todayOk -> { ev.changes.forEach { it.consume() }; 4 }
                                 !vertical -> -1
                                 zone == null -> 1
-                                zone.second.startsWith("stack") -> -1 // the widget scrolls itself
+                                zone.second.startsWith("stack") || zone.second == "widget" -> -1 // the widget scrolls itself
                                 zone.second.startsWith("app:") && total.y < 0 -> { iconTarget = zone.second.removePrefix("app:"); 3 }
                                 else -> 1
                             }
@@ -447,7 +447,13 @@ private fun PageGrid(index: Int, page: HomePage) {
                 ) else target
                 androidx.compose.animation.core.Animatable(start, androidx.compose.ui.unit.IntOffset.VectorConverter)
             }
-            LaunchedEffect(target) { pos.animateTo(target, dev.scyde.scycher.ui.common.Motion.settle()) }
+            LaunchedEffect(target) {
+                // a drop on the same page keeps this composable – start from where the finger let go
+                state.takeDropOrigin(item.id)?.let { d ->
+                    pos.snapTo(androidx.compose.ui.unit.IntOffset((d.x - state.gridOrigin.x).roundToInt(), (d.y - state.gridOrigin.y).roundToInt()))
+                }
+                pos.animateTo(target, dev.scyde.scycher.ui.common.Motion.settle())
+            }
             val appear = remember { androidx.compose.animation.core.Animatable(if (state.lastAddedId == item.id) 0f else 1f) }
             LaunchedEffect(Unit) { if (appear.value < 1f) appear.animateTo(1f, dev.scyde.scycher.ui.common.Motion.ui()) }
             val gone by animateFloatAsState(
@@ -498,7 +504,9 @@ private fun GridItem(item: HomeItem, pageIndex: Int, cwDp: Float, chDp: Float) {
             ItemVisual(item, cfg.icons.sizeDp.dp, cfg.home.showLabels, if (isWidget) Modifier.fillMaxSize() else Modifier)
             if (edit && item.type == ItemType.SystemWidget) {
                 // Swallow touches so the widget does not react while editing
-                Box(Modifier.matchParentSize())
+                // (an empty pointerInput stops the hit-test before the AndroidView without consuming,
+                // so the parent's tap / drag handlers still work)
+                Box(Modifier.matchParentSize().pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } })
             }
         }
         if (edit) {
@@ -526,7 +534,7 @@ private fun ResizeHandle(item: HomeItem, pageIndex: Int, cwDp: Float, chDp: Floa
         modifier
             .offset(14.dp, 14.dp)
             .size(44.dp) // touch target; the visible knob is 28dp (drawn below)
-            .pointerInput(item.id) {
+            .pointerInput(item.id, cwPx, chPx, pageIndex) {
                 var acc = Offset.Zero
                 var start = item
                 detectDragGestures(

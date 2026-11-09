@@ -57,8 +57,17 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
             val f = withContext(Dispatchers.IO) {
                 runCatching {
                     val dir = File(filesDir, "icons").apply { mkdirs() }
-                    val out = File(dir, "${key.hashCode().toUInt()}_${System.currentTimeMillis()}.img")
-                    contentResolver.openInputStream(uri)?.use { i -> out.outputStream().use { i.copyTo(it) } }
+                    val out = File(dir, "${key.hashCode().toUInt()}_${System.currentTimeMillis()}.png")
+                    // keep a small 512 px copy, not the full photo
+                    val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it, null, o) }
+                    var sample = 1
+                    while (maxOf(o.outWidth, o.outHeight) / (sample * 2) >= 512) sample *= 2
+                    val b = contentResolver.openInputStream(uri)?.use {
+                        android.graphics.BitmapFactory.decodeStream(it, null, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+                    } ?: error("unreadable image")
+                    out.outputStream().use { b.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                    b.recycle()
                     out
                 }.getOrNull()
             }
@@ -71,7 +80,7 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
     private val pickWallpaper = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
         uri ?: return@registerForActivityResult
         lifecycleScope.launch {
-            val ok = app.wallpaper.setFromUri(uri, alsoSystem = true)
+            val ok = app.wallpaper.setFromUri(uri, alsoSystem = app.store.value.look.wallpaperSetSystem)
             if (!ok) Toast.makeText(this@LauncherActivity, "Couldn't set wallpaper", Toast.LENGTH_SHORT).show()
         }
     }
@@ -231,6 +240,7 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
     override fun onStop() {
         super.onStop()
         wentAway = true
+        app.store.flushNow()
         app.widgets.stop()
         // Leaving home for an app closes transient UI like iOS does
         state.menu = null

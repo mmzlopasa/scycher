@@ -150,29 +150,37 @@ fun Modifier.itemGestures(
                 onTap = { tap(holder.window.toAndroid()) },
             )
         }
-        .pointerInput(item.id, source, edit) {
-            if (edit) {
-                detectDragGestures(
-                    onDragStart = { local ->
-                        if (haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        state.beginDrag(current, source, holder.root.topLeft + local, local, holder.size, holder.root)
-                    },
-                    onDrag = { c, a -> c.consume(); state.dragBy(a, slop) },
-                    onDragEnd = { state.endDrag() },
-                    onDragCancel = { state.cancelDrag() },
-                )
-            } else {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { local ->
-                        if (haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        state.beginDrag(current, source, holder.root.topLeft + local, local, holder.size, holder.root)
-                    },
-                    onDrag = { c, a -> c.consume(); state.dragBy(a, slop) },
-                    onDragEnd = { state.endDrag() },
-                    onDragCancel = { state.cancelDrag() },
-                )
-            }
+        // Long-press drag is always installed and keyed only on the item, so entering edit mode
+        // mid-drag (which beginDrag does) doesn't restart the handler and cancel the drag.
+        .pointerInput(item.id, source) {
+            var mine = false
+            detectDragGesturesAfterLongPress(
+                onDragStart = { local ->
+                    if (state.drag != null) { mine = false; return@detectDragGesturesAfterLongPress }
+                    mine = true
+                    if (haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    state.beginDrag(current, source, holder.root.topLeft + local, local, holder.size, holder.root)
+                },
+                onDrag = { c, a -> if (mine) { c.consume(); state.dragBy(a, slop) } },
+                onDragEnd = { if (mine) state.endDrag(); mine = false },
+                onDragCancel = { if (mine) state.cancelDrag(); mine = false },
+            )
         }
+        // In edit mode icons move right away (appended last so the handler above keeps its slot)
+        .then(if (!edit) Modifier else Modifier.pointerInput(item.id, source, "edit") {
+            var mine = false
+            detectDragGestures(
+                onDragStart = { local ->
+                    if (state.drag != null) { mine = false; return@detectDragGestures }
+                    mine = true
+                    if (haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    state.beginDrag(current, source, holder.root.topLeft + local, local, holder.size, holder.root)
+                },
+                onDrag = { c, a -> if (mine) { c.consume(); state.dragBy(a, slop) } },
+                onDragEnd = { if (mine) state.endDrag(); mine = false },
+                onDragCancel = { if (mine) state.cancelDrag(); mine = false },
+            )
+        })
 }
 
 /** Registers icons with a swipe-up action and smart stacks so home gestures leave them alone. */
@@ -182,6 +190,7 @@ fun Modifier.swipeZone(item: HomeItem): Modifier = composed {
     val action = when {
         item.type == ItemType.App && item.app != null -> cfg.iconSwipeUp[item.app]?.let { "app:$it" }
         item.builtin == dev.scyde.scycher.data.BuiltinKind.Stack -> "stack"
+        item.type == ItemType.SystemWidget && !state.editMode -> "widget" // lists in widgets scroll themselves
         else -> null
     }
     androidx.compose.runtime.DisposableEffect(item.id, action) {

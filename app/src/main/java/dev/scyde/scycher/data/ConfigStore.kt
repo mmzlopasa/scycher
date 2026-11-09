@@ -9,6 +9,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -74,7 +75,10 @@ class ConfigStore(context: Context) {
     private fun save(cfg: LauncherConfig) {
         try {
             val tmp = File(file.parentFile, "scycher.json.tmp")
-            tmp.writeText(json.encodeToString(LauncherConfig.serializer(), cfg))
+            java.io.FileOutputStream(tmp).use { out ->
+                out.write(json.encodeToString(LauncherConfig.serializer(), cfg).toByteArray())
+                out.fd.sync() // survive a sudden power-off
+            }
             if (!tmp.renameTo(file)) {
                 file.delete(); tmp.renameTo(file)
             }
@@ -87,16 +91,27 @@ class ConfigStore(context: Context) {
         .encodeToString(LauncherConfig.serializer(), value)
 
     fun import(text: String): Boolean = try {
-        val cfg = json.decodeFromString(LauncherConfig.serializer(), text)
+        // refuse random JSON files – a real backup always has these
+        val obj = json.parseToJsonElement(text) as kotlinx.serialization.json.JsonObject
+        require("layout" in obj && "version" in obj)
+        val cfg = migrate(json.decodeFromJsonElement(LauncherConfig.serializer(), obj))
         _config.value = cfg
         true
     } catch (t: Throwable) {
         false
     }
 
+    /** Resets only visual settings – layout, PIN, custom icons, gestures and weather city stay. */
     fun resetLook() = update {
-        LauncherConfig(onboarded = true, layout = it.layout, hiddenApps = it.hiddenApps, customLabels = it.customLabels)
+        it.copy(
+            home = HomeConfig(), icons = IconConfig(), dock = DockConfig(), library = LibraryConfig(), look = LookConfig(),
+            widgets = WidgetStyleConfig(weatherCity = it.widgets.weatherCity, weatherLat = it.widgets.weatherLat,
+                weatherLon = it.widgets.weatherLon, worldClocks = it.widgets.worldClocks),
+        )
     }
+
+    /** Write pending changes now (e.g. when the app goes to the background). */
+    fun flushNow() { val c = _config.value; scope.launch { save(c) } }
 }
 
 /* ---------------------------- layout helpers ---------------------------- */

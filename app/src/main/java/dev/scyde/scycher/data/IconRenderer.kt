@@ -17,7 +17,9 @@ import androidx.core.graphics.ColorUtils
 /** Renders any app icon into a crisp bitmap with Scycher's shape & style. */
 object IconRenderer {
 
-    private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    // one Paint per thread: icons render in parallel from several IO threads
+    private val paints = ThreadLocal.withInitial { Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG) }
+    private val bgPaint: Paint get() = paints.get()!!
 
     fun render(src: Drawable, size: Int, cfg: IconConfig): Bitmap {
         val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)

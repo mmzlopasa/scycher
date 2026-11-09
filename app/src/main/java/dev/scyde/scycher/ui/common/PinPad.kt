@@ -95,11 +95,13 @@ fun PinPad(
             Spacer(Modifier.height(14.dp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(74.dp).clip(CircleShape).clickable(enabled = onBiometric != null || length == null) {
-                if (length == null) submit() else onBiometric?.invoke()
+            // empty: fingerprint (when available) · typing: OK
+            val showOk = length == null && (pin.isNotEmpty() || onBiometric == null)
+            Box(Modifier.size(74.dp).clip(CircleShape).clickable(enabled = showOk || onBiometric != null) {
+                if (showOk) submit() else onBiometric?.invoke()
             }, contentAlignment = Alignment.Center) {
-                if (length == null) Text("OK", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                else if (onBiometric != null) Icon(Icons.Rounded.Fingerprint, null, tint = Color.White, modifier = Modifier.size(30.dp))
+                if (showOk) Text("OK", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                else if (onBiometric != null) Icon(Icons.Rounded.Fingerprint, "Use fingerprint", tint = Color.White, modifier = Modifier.size(30.dp))
             }
             Key("0") { press("0") }
             Box(Modifier.size(74.dp).clip(CircleShape).clickable { if (pin.isNotEmpty()) pin = pin.dropLast(1) }, contentAlignment = Alignment.Center) {

@@ -37,6 +37,9 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.text.Collator
 
@@ -77,7 +80,7 @@ class AppRepository(private val context: Context, private val store: ConfigStore
     private val usage = context.getSharedPreferences("usage", Context.MODE_PRIVATE)
 
     private val callback = object : LauncherApps.Callback() {
-        override fun onPackageRemoved(packageName: String, user: UserHandle) = reload()
+        override fun onPackageRemoved(packageName: String, user: UserHandle) = reload(packageName)
         override fun onPackageAdded(packageName: String, user: UserHandle) = reload(packageName)
         override fun onPackageChanged(packageName: String, user: UserHandle) = reload(packageName)
         override fun onPackagesAvailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) = reload()
@@ -89,7 +92,11 @@ class AppRepository(private val context: Context, private val store: ConfigStore
     init {
         launcherApps.registerCallback(callback, Handler(Looper.getMainLooper()))
         // Re-render icons when icon config changes
-        store.config.map { it.icons to maxIconDp(it) }.distinctUntilChanged().drop(1).onEach {
+        store.config.map { c ->
+            // only what changes the rendered bitmap – badge colour, press scale etc. don't need a re-render
+            listOf(c.icons.shape, c.icons.style, c.icons.tintColor, c.icons.iconPack, c.icons.reshapeLegacy,
+                c.icons.legacyBackground, c.icons.glassRim, c.icons.themeOthers, maxIconDp(c))
+        }.distinctUntilChanged().drop(1).debounce(220).onEach {
             invalidateIcons()
         }.launchIn(scope)
         reload()
@@ -99,13 +106,33 @@ class AppRepository(private val context: Context, private val store: ConfigStore
 
     private var reloadJob: Job? = null
 
+    private val pendingChanged = HashSet<String>()
+    private val reloadLock = kotlinx.coroutines.sync.Mutex()
+
     fun reload(changedPkg: String? = null) {
+        if (changedPkg != null) {
+            synchronized(pendingChanged) { pendingChanged += changedPkg }
+            if (changedPkg == iconPackName) dropIconPack()
+        }
         reloadJob?.cancel()
-        reloadJob = scope.launch {
+        reloadJob = scope.launch { reloadLock.withLock { doReload() } }
+    }
+
+    private fun dropIconPack() {
+        synchronized(packLock) { iconPack = null; iconPackName = null }
+        invalidateIcons()
+    }
+
+    private suspend fun doReload() {
+        run {
             val list = ArrayList<AppInfo>()
             val newInfos = HashMap<String, LauncherActivityInfo>()
             val profiles = try { userManager.userProfiles } catch (_: Exception) { listOf(Process.myUserHandle()) }
+            val skipped = HashSet<UserHandle>()
             for (user in profiles) {
+                // paused work profile / locked private space: its apps aren't gone, just hidden right now
+                val off = try { userManager.isQuietModeEnabled(user) || !userManager.isUserUnlocked(user) } catch (_: Exception) { false }
+                if (off) { skipped += user; continue }
                 val acts = try { launcherApps.getActivityList(null, user) } catch (_: Exception) { emptyList() }
                 for (a in acts) {
                     if (a.componentName.packageName == context.packageName) continue
@@ -127,10 +154,12 @@ class AppRepository(private val context: Context, private val store: ConfigStore
             val collator = Collator.getInstance().apply { strength = Collator.PRIMARY }
             list.sortWith { a, b -> collator.compare(a.label, b.label) }
             synchronized(infos) { infos.clear(); infos.putAll(newInfos) }
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
             GlyphPack.resetRoles()
-            if (changedPkg != null) {
+            val changed = synchronized(pendingChanged) { pendingChanged.toList().also { pendingChanged.clear() } }
+            if (changed.isNotEmpty()) {
                 synchronized(cache) {
-                    cache.snapshot().keys.filter { it.startsWith("$changedPkg/") }.forEach { cache.remove(it) }
+                    cache.snapshot().keys.filter { k -> changed.any { k.startsWith("$it/") } }.forEach { cache.remove(it) }
                 }
                 _iconGen.value++
             }
@@ -139,14 +168,30 @@ class AppRepository(private val context: Context, private val store: ConfigStore
             _loaded.value = true
             // prune layout from removed apps
             val keys = list.mapTo(HashSet()) { it.key }
-            if (keys.isNotEmpty()) store.updateLayout { LayoutOps.prune(it, keys) }
+            // keep apps of profiles that are switched off – and anything on storage that's just unmounted
+            if (keys.isNotEmpty()) store.updateLayout { layout ->
+                val serials = skipped.map { "#" + userManager.getSerialNumberForUser(it) }
+                val keep = HashSet(keys)
+                if (serials.isNotEmpty()) {
+                    val all = (layout.pages.flatMap { it.items } + layout.dock).flatMap { i -> listOfNotNull(i.app) + i.apps }
+                    all.filterTo(keep) { k -> serials.any { k.endsWith(it) } }
+                }
+                LayoutOps.prune(layout, keep)
+            }
             preload(list)
         }
     }
 
-    private fun preload(list: List<AppInfo>) = scope.launch(Dispatchers.IO) {
-        for (a in list) {
-            if (cached(a.key) == null) runCatching { renderIcon(a.key) }
+    private var preloadJob: Job? = null
+    private val packLock = Any()
+
+    private fun preload(list: List<AppInfo>) {
+        preloadJob?.cancel()
+        preloadJob = scope.launch(Dispatchers.IO) {
+            for (a in list) {
+                ensureActive()
+                if (cached(a.key) == null) runCatching { renderIcon(a.key) }
+            }
         }
     }
 
@@ -187,13 +232,16 @@ class AppRepository(private val context: Context, private val store: ConfigStore
         val density = context.resources.displayMetrics.density
         val sizePx = (maxIconDp(cfg) * density * 1.15f).toInt().coerceIn(48, 320)
         val packName = cfg.icons.iconPack
-        if (packName != iconPackName) {
-            iconPack = packName?.takeIf { it != GlyphPack.ID }?.let { runCatching { IconPack(context, it) }.getOrNull() }
-            iconPackName = packName
+        val pack = synchronized(packLock) {
+            if (packName != iconPackName) {
+                iconPack = packName?.takeIf { it != GlyphPack.ID }?.let { runCatching { IconPack(context, it) }.getOrNull() }
+                iconPackName = packName
+            }
+            iconPack
         }
         val dpi = context.resources.displayMetrics.densityDpi
         val bmp: Bitmap = try {
-            val custom = cfg.customIcons[key]?.let { path -> runCatching { android.graphics.BitmapFactory.decodeFile(path) }.getOrNull() }
+            val custom = cfg.customIcons[key]?.let { path -> runCatching { decodeSmall(path, 512) }.getOrNull() }
             if (custom != null) {
                 val r = IconRenderer.renderImage(custom, sizePx, cfg.icons)
                 custom.recycle()
@@ -201,7 +249,7 @@ class AppRepository(private val context: Context, private val store: ConfigStore
                 return r.asImageBitmap().also { synchronized(cache) { cache.put(key, it) } }
             }
             val glyph = if (packName == GlyphPack.ID) GlyphPack.icon(context, key, info, cfg.icons.themeOthers, dpi) else null
-            val packed = if (glyph == null) iconPack?.icon(info.componentName.flattenToString(), dpi) else null
+            val packed = if (glyph == null) pack?.icon(info.componentName.flattenToString(), dpi) else null
             if (glyph != null) {
                 IconRenderer.render(glyph, sizePx, resolvedIcons(cfg.icons))
             } else if (packed != null) {
@@ -228,6 +276,15 @@ class AppRepository(private val context: Context, private val store: ConfigStore
     }
 
     fun label(key: String): String = store.value.customLabels[key] ?: _map.value[key]?.label ?: ""
+
+    /** Decodes an image file down to roughly [max] px so huge photos can't run out of memory. */
+    private fun decodeSmall(path: String, max: Int): Bitmap? {
+        val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeFile(path, o)
+        var sample = 1
+        while (maxOf(o.outWidth, o.outHeight) / (sample * 2) >= max) sample *= 2
+        return android.graphics.BitmapFactory.decodeFile(path, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample })
+    }
 
     fun keyOf(cn: ComponentName, user: UserHandle): String {
         val base = cn.flattenToString()

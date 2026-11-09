@@ -80,6 +80,11 @@ class SettingsActivity : ComponentActivity() {
         setContent { SettingsRoot(this) }
     }
 
+    override fun onStop() {
+        super.onStop()
+        dev.scyde.scycher.ScycherApp.instance.store.flushNow()
+    }
+
     override fun onResume() {
         super.onResume()
         resumeTick.value++

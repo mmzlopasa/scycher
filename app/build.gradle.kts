@@ -20,8 +20,8 @@ android {
         applicationId = "dev.scyde.scycher"
         minSdk = 26
         targetSdk = 35
-        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 5
-        versionName = (project.findProperty("versionName") as String?) ?: "1.4.0"
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 6
+        versionName = (project.findProperty("versionName") as String?) ?: "1.5.0"
     }
 
     signingConfigs {

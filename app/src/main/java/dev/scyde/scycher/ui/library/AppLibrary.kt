@@ -149,7 +149,6 @@ fun AppLibrary() {
     val keyboard = LocalSoftwareKeyboardController.current
     val query = state.libraryQuery
 
-    BackHandler(p > 0f) { state.closeLibrary() }
 
     val visible = remember(apps, cfg.hiddenApps, cfg.customLabels, cfg.customCategories, lc.sort) {
         val list = apps.filter { it.key !in cfg.hiddenApps }
@@ -411,6 +410,7 @@ private fun ListLibrary(apps: List<AppInfo>, modifier: Modifier) {
                 .pointerInput(groups) {
                     detectVerticalDragGestures { c, _ ->
                         val keys = groups.keys.toList()
+                        if (keys.isEmpty()) return@detectVerticalDragGestures
                         val i = ((c.position.y / size.height) * keys.size).toInt().coerceIn(0, keys.lastIndex)
                         scope.launch { ls.scrollToItem(letterIndex[keys[i]] ?: 0) }
                     }

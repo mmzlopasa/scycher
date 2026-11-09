@@ -47,10 +47,20 @@ class ScycherNotificationListener : NotificationListenerService() {
         connected.value = false
         try { sessions?.removeOnActiveSessionsChangedListener(sessionListener) } catch (_: Throwable) {}
         unbindAll()
+        badges.value = emptyMap(); nowPlaying.value = null
     }
 
-    override fun onNotificationPosted(sbn: StatusBarNotification?) = refreshBadges()
-    override fun onNotificationRemoved(sbn: StatusBarNotification?) = refreshBadges()
+    private val handler = Handler(Looper.getMainLooper())
+    private val refresh = Runnable { refreshBadges() }
+
+    // progress notifications update every second – coalesce instead of re-reading all notifications each time
+    override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        if (sbn?.isOngoing == true && badges.value.containsKey(sbn.packageName).not()) return
+        handler.removeCallbacks(refresh); handler.postDelayed(refresh, 300)
+    }
+    override fun onNotificationRemoved(sbn: StatusBarNotification?) {
+        handler.removeCallbacks(refresh); handler.postDelayed(refresh, 300)
+    }
 
     private fun refreshBadges() {
         val list = try { activeNotifications ?: emptyArray() } catch (_: Throwable) { emptyArray() }

@@ -119,6 +119,8 @@ fun SettingsGate(onUnlocked: () -> Unit) {
     val sec = LocalConfig.current.security
     val nav = LocalNav.current
     val ctx = LocalContext.current
+    val bio = sec.biometric && Security.biometricAvailable(ctx)
+    androidx.compose.runtime.LaunchedEffect(Unit) { if (bio) Security.authenticate(nav, "Settings", onUnlocked) {} }
     Box(Modifier.fillMaxSize().background(Bg), contentAlignment = Alignment.Center) {
         PinPad(
             "Settings",

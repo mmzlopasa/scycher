@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.max
@@ -65,15 +67,35 @@ class WallpaperController(private val context: Context, private val store: Confi
         }
     }
 
-    fun reload() = scope.launch {
+    private var reloadJob: kotlinx.coroutines.Job? = null
+    private val reloadLock = kotlinx.coroutines.sync.Mutex()
+    private val writeLock = kotlinx.coroutines.sync.Mutex()
+
+    /** Only the newest reload matters; never decode + blur three times in parallel. */
+    fun reload() {
+        reloadJob?.cancel()
+        reloadJob = scope.launch { reloadLock.withLock { doReload() } }
+    }
+
+    /** Write the wallpaper atomically so a half-written file is never decoded. */
+    private fun writeFile(input: java.io.InputStream) {
+        val tmp = File(file.parentFile, file.name + ".tmp")
+        tmp.outputStream().use { input.copyTo(it) }
+        if (!tmp.renameTo(file)) { file.delete(); tmp.renameTo(file) }
+    }
+
+    private suspend fun doReload() {
         val mode = store.value.look.wallpaperMode
         val radius = store.value.look.glassBlurRadius
         val token = _state.value.token + 1
         val light = isLightWallpaper()
         if (mode == WallpaperMode.Scycher && file.exists()) {
-            val bmp = decodeScaled(file) ?: return@launch
+            val bmp = decodeScaled(file) ?: return
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
             val (dom, acc) = palette(bmp)
-            _state.value = WallpaperState(bmp.asImageBitmap(), blur(bmp, radius)?.asImageBitmap(), light, token, dom, acc)
+            // our own image decides text contrast, not the system wallpaper's hint
+            val ownLight = dom?.let { androidx.core.graphics.ColorUtils.calculateLuminance(it.toInt()) > 0.6 } ?: light
+            _state.value = WallpaperState(bmp.asImageBitmap(), blur(bmp, radius)?.asImageBitmap(), ownLight, token, dom, acc)
         } else {
             val sys = readSystemWallpaper()
             val (dom, acc) = sys?.let { palette(it) } ?: systemPalette()
@@ -164,13 +186,19 @@ class WallpaperController(private val context: Context, private val store: Confi
         BitmapFactory.decodeFile(f.path, o)
         var sample = 1
         while (max(o.outWidth, o.outHeight) / (sample * 2) >= target) sample *= 2
-        BitmapFactory.decodeFile(f.path, BitmapFactory.Options().apply { inSampleSize = sample })
+        val b = BitmapFactory.decodeFile(f.path, BitmapFactory.Options().apply { inSampleSize = sample })
+        // sampling only halves – bring huge photos down to exactly the target so drawing never exceeds limits
+        val long = b?.let { max(it.width, it.height) } ?: 0
+        if (b != null && long > target) {
+            val k = target / long
+            Bitmap.createScaledBitmap(b, (b.width * k).toInt().coerceAtLeast(1), (b.height * k).toInt().coerceAtLeast(1), true).also { if (it !== b) b.recycle() }
+        } else b
     } catch (t: Throwable) { Log.w("Scycher", "wallpaper decode", t); null }
 
     /** Sets a new Scycher wallpaper from a picked image. */
     suspend fun setFromUri(uri: Uri, alsoSystem: Boolean): Boolean = withContext(Dispatchers.IO) {
         try {
-            context.contentResolver.openInputStream(uri)?.use { input -> file.outputStream().use { input.copyTo(it) } }
+            writeLock.withLock { context.contentResolver.openInputStream(uri)?.use { writeFile(it) } }
             if (alsoSystem) {
                 try {
                     decodeScaled(file)?.let { b ->
@@ -196,7 +224,7 @@ class WallpaperController(private val context: Context, private val store: Confi
     suspend fun applyPack(key: String, variantPref: String) = withContext(Dispatchers.IO) {
         val variant = variantFor(variantPref)
         try {
-            context.assets.open(WallpaperPack.asset(key, variant)).use { input -> file.outputStream().use { input.copyTo(it) } }
+            writeLock.withLock { context.assets.open(WallpaperPack.asset(key, variant)).use { writeFile(it) } }
             val c = store.value.look
             if (c.wallpaperSetSystem) {
                 try {

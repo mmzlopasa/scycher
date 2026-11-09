@@ -240,8 +240,9 @@ private fun MenuCard(req: MenuRequest) {
                 if (src != DragSource.Dock && cfg.dock.enabled && cfg.layout.dock.none { it.app == key }) {
                     MenuRow("Add to Dock", Icons.Rounded.Dock) {
                         close()
-                        if (src is DragSource.Page && item != null) state.removeItem(item)
-                        state.addAppToDock(key)
+                        // only take it off the page once it's really in the dock (the dock may be full)
+                        if (state.addAppToDock(key)) { if (src is DragSource.Page && item != null) state.removeItem(item) }
+                        else android.widget.Toast.makeText(state.context, "The Dock is full", android.widget.Toast.LENGTH_SHORT).show()
                     }
                     MenuDivider()
                 }

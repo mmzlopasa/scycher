@@ -102,7 +102,6 @@ fun Spotlight() {
     val q = state.spotlightQuery
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    BackHandler(state.spotlight) { state.spotlight = false }
 
     AnimatedVisibility(state.spotlight, enter = fadeIn(dev.scyde.scycher.ui.common.Motion.ui()), exit = fadeOut(dev.scyde.scycher.ui.common.Motion.exit())) {
         LaunchedEffect(Unit) { runCatching { focus.requestFocus(); keyboard?.show() } }

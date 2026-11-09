@@ -156,25 +156,40 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
     fun anyOverlay() = wallpaperSheet || spotlight || controlCenter || customize || today.targetValue > 0f || pin != null || appChooser != null || categoryFor != null || menu != null || openFolderId != null || openCategory != null || widgetPicker ||
         widgetSettingsId != null || rename != null || library.targetValue > 0f
 
+    /** Back: closes only the topmost layer, like iPadOS. */
     fun closeOverlays(): Boolean {
-        var closed = false
-        if (pin != null) { pin = null; closed = true }
-        if (customize) { customize = false; closed = true }
-        if (wallpaperSheet) { wallpaperSheet = false; closed = true }
-        if (spotlight) { spotlight = false; spotlightQuery = ""; closed = true }
-        if (controlCenter) { controlCenter = false; closed = true }
-        if (appChooser != null) { appChooser = null; closed = true }
-        if (categoryFor != null) { categoryFor = null; closed = true }
-        if (menu != null) { menu = null; closed = true }
-        if (rename != null) { rename = null; closed = true }
-        if (widgetSettingsId != null) { widgetSettingsId = null; closed = true }
-        if (widgetPicker) { widgetPicker = false; closed = true }
-        if (openCategory != null) { openCategory = null; closed = true }
-        if (openFolderId != null) { openFolderId = null; closed = true }
-        if (!closed && library.targetValue > 0f) { closeLibrary(); closed = true }
-        if (!closed && today.targetValue > 0f) { closeToday(); closed = true }
-        if (!closed && editMode) { editMode = false; closed = true }
-        return closed
+        when {
+            pin != null -> pin = null
+            menu != null -> menu = null
+            rename != null -> rename = null
+            categoryFor != null -> categoryFor = null
+            appChooser != null -> appChooser = null
+            widgetSettingsId != null -> widgetSettingsId = null
+            widgetPicker -> { widgetPicker = false; pickerTarget = "home" }
+            openCategory != null -> openCategory = null
+            openFolderId != null -> openFolderId = null
+            spotlight -> { spotlight = false; spotlightQuery = "" }
+            controlCenter -> controlCenter = false
+            wallpaperSheet -> wallpaperSheet = false
+            customize -> customize = false
+            library.targetValue > 0f -> closeLibrary()
+            today.targetValue > 0f -> closeToday()
+            editMode -> editMode = false
+            else -> return false
+        }
+        return true
+    }
+
+    /** Home: everything closes at once. */
+    fun closeAll(): Boolean {
+        val any = anyOverlay() || editMode
+        pin = null; menu = null; rename = null; categoryFor = null; appChooser = null; widgetSettingsId = null
+        widgetPicker = false; pickerTarget = "home"; openCategory = null; openFolderId = null
+        spotlight = false; spotlightQuery = ""; controlCenter = false; wallpaperSheet = false; customize = false
+        if (library.targetValue > 0f || library.value > 0f) closeLibrary()
+        if (today.targetValue > 0f || today.value > 0f) closeToday()
+        editMode = false
+        return any
     }
 
     /** [velocity] is the finger's release velocity in progress-units/s (Apple: hand the velocity to the spring). */
@@ -194,7 +209,8 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
     }
 
     fun onHomePressed() {
-        if (closeOverlays()) return
+        if (drag != null) cancelDrag()
+        if (closeAll()) return
         if (store.value.home.homeButtonGoesToFirstPage && ::pager.isInitialized && pager.currentPage != 0)
             scope.launch { pager.animateScrollToPage(0) }
     }
@@ -216,6 +232,7 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
     }
 
     fun setCustomIcon(key: String, path: String?) {
+        store.value.customIcons[key]?.takeIf { it != path }?.let { old -> scope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { java.io.File(old).delete() } } }
         store.update { c -> c.copy(customIcons = if (path == null) c.customIcons - key else c.customIcons + (key to path)) }
         scope.launch { kotlinx.coroutines.delay(300); repo.invalidate(key) }
     }
@@ -286,6 +303,7 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
     }
 
     fun addSystemWidgetItem(widgetId: Int, provider: String, w: Int, h: Int) {
+        pickerTarget = "home"
         val sid = newId(); lastAddedId = sid
         val item = HomeItem(sid, ItemType.SystemWidget, w = w.coerceIn(1, cols), h = h.coerceIn(1, rows), widgetId = widgetId, provider = provider)
         store.updateLayout { LayoutOps.placeAnywhere(it, cols, rows, item, currentPage(), newId()) }
@@ -406,6 +424,8 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
         if (item.type == ItemType.App && occupant != null && (occupant.type == ItemType.App || occupant.type == ItemType.Folder)) {
             val key = item.app ?: return
             store.updateLayout { l0 ->
+                // dropped back on its own folder: nothing changes (keeps the folder and its name)
+                if (d.source is DragSource.Folder && (d.source as DragSource.Folder).folderId == occupant.id) return@updateLayout l0
                 val l = detach(l0, d)
                 val occ = LayoutOps.findItem(l, occupant.id) ?: return@updateLayout l0
                 if (occ.type == ItemType.Folder) {

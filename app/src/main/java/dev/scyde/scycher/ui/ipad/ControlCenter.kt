@@ -152,7 +152,6 @@ fun ControlCenter() {
     val wp = LocalWallpaper.current
     val geo = LocalWallpaperGeometry.current
     val filter = rememberSaturationFilter()
-    BackHandler(state.controlCenter) { state.controlCenter = false }
     val tick = state.resumeTick
 
     AnimatedVisibility(state.controlCenter, enter = fadeIn(dev.scyde.scycher.ui.common.Motion.ui()), exit = fadeOut(dev.scyde.scycher.ui.common.Motion.exit())) {

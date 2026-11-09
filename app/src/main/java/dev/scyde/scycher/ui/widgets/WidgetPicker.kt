@@ -78,7 +78,7 @@ import kotlin.math.ceil
 fun WidgetPicker() {
     val state = LocalLauncher.current
     var tab by remember { mutableStateOf(0) }
-    BottomSheet(state.widgetPicker, { state.widgetPicker = false }, maxWidth = 980) {
+    BottomSheet(state.widgetPicker, { state.widgetPicker = false; state.pickerTarget = "home" }, maxWidth = 980) {
         Row(Modifier.padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Widgets", color = Color.White, style = dev.scyde.scycher.ui.common.TypeScale.Title1, modifier = Modifier.weight(1f))
             Chips(listOf(0, 1), tab, { if (it == 0) "Scycher" else "Apps" }) { tab = it }
