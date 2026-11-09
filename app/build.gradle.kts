@@ -20,8 +20,8 @@ android {
         applicationId = "dev.scyde.scycher"
         minSdk = 26
         targetSdk = 35
-        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
-        versionName = (project.findProperty("versionName") as String?) ?: "1.0.0"
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 5
+        versionName = (project.findProperty("versionName") as String?) ?: "1.4.0"
     }
 
     signingConfigs {
@@ -42,7 +42,15 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             val rel = signingConfigs.getByName("release")
-            signingConfig = if (rel.storeFile != null) rel else signingConfigs.getByName("debug")
+            if (rel.storeFile != null) {
+                signingConfig = rel
+            } else {
+                // Without the release key (e.g. CI before the secret is set) build a side-by-side copy:
+                // a different package so it can never block the real, properly signed Scycher.
+                signingConfig = signingConfigs.getByName("debug")
+                applicationIdSuffix = ".ci"
+                versionNameSuffix = "-ci"
+            }
         }
         debug {
             applicationIdSuffix = ".debug"

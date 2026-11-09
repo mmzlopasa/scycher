@@ -45,11 +45,11 @@ jobs:
       - name: Version
         id: v
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then NAME="${GITHUB_REF#refs/tags/v}"; else NAME="1.0.${{ github.run_number }}"; fi
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then NAME="${GITHUB_REF#refs/tags/v}"; else NAME="ci-${{ github.run_number }}"; fi
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
       - name: Build release APK
-        run: ./gradlew :app:assembleRelease -PversionCode=${{ github.run_number }} -PversionName=${{ steps.v.outputs.name }} --no-daemon
+        run: ./gradlew :app:assembleRelease --no-daemon
 
       - name: Rename APK
         run: cp app/build/outputs/apk/release/app-release.apk "Scycher-${{ steps.v.outputs.name }}.apk"
