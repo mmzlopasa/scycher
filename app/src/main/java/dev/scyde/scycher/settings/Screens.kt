@@ -207,7 +207,7 @@ fun GestureSettings() {
     val canWrite = remember(tick, refresh) { SystemActions.canWriteSecure(ctx) }
     val hyper = remember(tick, refresh) { SystemActions.hyperGesturesEnabled(ctx) }
     val lineHidden = remember(tick, refresh) { SystemActions.gestureLineHidden(ctx) }
-    val access = remember(tick) { SystemActions.isAccessibilityEnabled(ctx) }
+    val access = remember(tick, refresh) { SystemActions.isAccessibilityEnabled(ctx) }
     val running by ScycherGestureService.running.collectAsState()
     fun nav(block: (dev.scyde.scycher.data.NavGestureConfig) -> dev.scyde.scycher.data.NavGestureConfig) = update { it.copy(nav = block(it.nav)) }
 
@@ -237,8 +237,8 @@ fun GestureSettings() {
                     "Always return Home", n.homeRescue && access,
                     "Fixes swipe up not going home in some apps (e.g. Android Settings). Uses Scycher Gestures (Accessibility)."
                 ) { v ->
-                    nav { it.copy(homeRescue = v, enabled = if (v) false else it.enabled) }
-                    if (v && !access) {
+                    nav { it.copy(homeRescue = v, enabled = if (v) false else it.enabled, keepServiceOn = v) }
+                    if (v && !access && !SystemActions.enableServiceDirect(ctx)) {
                         Toast.makeText(ctx, "Turn on “Scycher Gestures”, then come back", Toast.LENGTH_LONG).show()
                         SystemActions.openAccessibilitySettings(ctx)
                     }
@@ -260,7 +260,10 @@ fun GestureSettings() {
         Group("Option B · Scycher Gestures", footer = "Thin invisible strips on the edges turn swipes into Home, Back and Recents. If HyperOS stops the service, set Scycher's battery saver to “No restrictions” and enable Autostart.") {
             StatusRow("Accessibility service", access && running, "Running", if (access) "Starting…" else "Off")
             Divider()
-            NavRow(if (access) "Accessibility settings" else "Turn on Scycher Gestures", null) { SystemActions.openAccessibilitySettings(ctx) }
+            NavRow(if (access) "Accessibility settings" else "Turn on Scycher Gestures", null) {
+                if (!access && SystemActions.enableServiceDirect(ctx)) { refresh++; Toast.makeText(ctx, "Scycher Gestures turned on", Toast.LENGTH_SHORT).show() }
+                else SystemActions.openAccessibilitySettings(ctx)
+            }
             Divider()
             NavRow("Battery & Autostart", null) {
                 runCatching {
@@ -268,7 +271,11 @@ fun GestureSettings() {
                 }
             }
             Divider()
-            SwitchRow("Enable edge gestures", n.enabled) { v -> nav { it.copy(enabled = v) } }
+            SwitchRow("Enable edge gestures", n.enabled && !n.homeRescue) { v ->
+                nav { it.copy(enabled = v, homeRescue = false, keepServiceOn = v) }
+                if (v && !access && !SystemActions.enableServiceDirect(ctx)) SystemActions.openAccessibilitySettings(ctx)
+                refresh++
+            }
         }
         if (n.enabled) {
             Group("Bottom edge") {

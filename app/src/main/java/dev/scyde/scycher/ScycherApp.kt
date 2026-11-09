@@ -18,6 +18,10 @@ class ScycherApp : Application() {
         super.onCreate()
         instance = this
         store = ConfigStore(this)
+        // HyperOS likes to switch accessibility services off; with the ADB permission we turn ours back on
+        val nav = store.value.nav
+        if (nav.keepServiceOn && (nav.enabled || nav.homeRescue) && !dev.scyde.scycher.gestures.SystemActions.isAccessibilityEnabled(this))
+            dev.scyde.scycher.gestures.SystemActions.enableServiceDirect(this)
     }
 
     companion object {

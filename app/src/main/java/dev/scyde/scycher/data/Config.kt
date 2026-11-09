@@ -297,6 +297,8 @@ data class NavGestureConfig(
     val forwardTaps: Boolean = true,
     /** With HyperOS gestures (option A): Scycher also watches the bottom edge and makes sure swipe up always goes home. */
     val homeRescue: Boolean = false,
+    /** User turned gestures on in Scycher: switch the service back on if HyperOS disables it. */
+    val keepServiceOn: Boolean = false,
 )
 
 @Serializable

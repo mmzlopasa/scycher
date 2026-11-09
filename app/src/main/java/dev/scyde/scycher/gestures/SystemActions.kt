@@ -111,8 +111,28 @@ object SystemActions {
     }
 
     private fun needService(context: Context) {
+        if (enableServiceDirect(context)) {
+            Toast.makeText(context, "Scycher Gestures turned on – try again", Toast.LENGTH_SHORT).show(); return
+        }
         Toast.makeText(context, "Enable “Scycher Gestures” in Accessibility to use this action", Toast.LENGTH_LONG).show()
         openAccessibilitySettings(context)
+    }
+
+    /**
+     * With the one-time ADB permission Scycher can switch its own gesture service on – no trip through
+     * Accessibility settings ("restricted setting") and it comes back if HyperOS turns it off.
+     */
+    fun enableServiceDirect(context: Context): Boolean {
+        if (!canWriteSecure(context)) return false
+        return try {
+            val me = ComponentName(context, ScycherGestureService::class.java).flattenToString()
+            val cur = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
+            val list = cur.split(':').filter { it.isNotBlank() }
+            if (list.none { ComponentName.unflattenFromString(it) == ComponentName.unflattenFromString(me) })
+                Settings.Secure.putString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, (list + me).joinToString(":"))
+            Settings.Secure.putInt(context.contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
+            true
+        } catch (_: Throwable) { false }
     }
 
     fun isAccessibilityEnabled(context: Context): Boolean {
