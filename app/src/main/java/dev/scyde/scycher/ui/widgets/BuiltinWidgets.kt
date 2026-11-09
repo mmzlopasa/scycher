@@ -285,7 +285,8 @@ private fun WorldClockWidget(item: HomeItem, modifier: Modifier) {
                         T(z.substringAfterLast('/').replace('_', ' '), (14 * u).sp, c.text, FontWeight.SemiBold)
                         T("$day, ${if (diffH >= 0) "+" else ""}${diffH}h", (11 * u).sp, c.secondary)
                     }
-                    T(zt.format(DateTimeFormatter.ofPattern(if (w.clock24h) "HH:mm" else "h:mm")), (24 * u).sp, c.text, FontWeight.Light)
+                    Spacer(Modifier.width((8 * u).dp))
+                    T(zt.format(DateTimeFormatter.ofPattern(if (w.clock24h) "HH:mm" else "h:mm")), (20 * u).sp, c.text, FontWeight.Light)
                 }
             }
         }
@@ -390,7 +391,13 @@ private fun CalendarWidget(item: HomeItem, modifier: Modifier) {
         val u = unit()
         val wide = maxWidth > maxHeight * 1.4f
         val big = maxHeight > 300.dp
-        if (!wide && !big) {
+        if (maxWidth < 150.dp || maxHeight < 150.dp) {
+            // Too small for a month grid: just the date, like iOS's small calendar.
+            Column(Modifier.fillMaxSize().padding((10 * u).dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                T(today.dayOfWeek.getDisplayName(JTextStyle.SHORT, Locale.getDefault()).uppercase(), (12 * u).sp, Color(0xFFFF453A), FontWeight.Bold)
+                T(today.dayOfMonth.toString(), (40 * u).sp, c.text, FontWeight.Light)
+            }
+        } else if (!wide && !big) {
             Column(Modifier.fillMaxSize().padding((16 * u).dp)) {
                 T(today.dayOfWeek.getDisplayName(JTextStyle.FULL, Locale.getDefault()).uppercase(), (13 * u).sp, Color(0xFFFF453A), FontWeight.Bold)
                 T(today.dayOfMonth.toString(), (58 * u).sp, c.text, FontWeight.Light, lineHeight = (60 * u).sp)

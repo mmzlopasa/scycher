@@ -520,8 +520,11 @@ private fun ResizeHandle(item: HomeItem, pageIndex: Int, cwDp: Float, chDp: Floa
                 ) { c, d ->
                     c.consume()
                     acc += d
-                    val nw = (start.w + (acc.x / cwPx).roundToInt()).coerceIn(1, state.cols - start.x)
-                    val nh = (start.h + (acc.y / chPx).roundToInt()).coerceIn(1, state.rows - start.y)
+                    // Built-in widgets can't shrink below their smallest designed size.
+                    val minW = start.builtin?.sizes?.minOf { it.first } ?: 1
+                    val minH = start.builtin?.sizes?.minOf { it.second } ?: 1
+                    val nw = (start.w + (acc.x / cwPx).roundToInt()).coerceIn(minW.coerceAtMost(state.cols - start.x), (state.cols - start.x).coerceAtLeast(1))
+                    val nh = (start.h + (acc.y / chPx).roundToInt()).coerceIn(minH.coerceAtMost(state.rows - start.y), (state.rows - start.y).coerceAtLeast(1))
                     val page = state.store.value.layout.pages.getOrNull(pageIndex) ?: return@detectDragGestures
                     val cur = page.items.firstOrNull { it.id == item.id } ?: return@detectDragGestures
                     if ((nw != cur.w || nh != cur.h) && LayoutOps.fits(page, state.cols, state.rows, cur.x, cur.y, nw, nh, cur.id)) {
