@@ -121,9 +121,9 @@ fun SettingsGate(onUnlocked: () -> Unit) {
     val ctx = LocalContext.current
     Box(Modifier.fillMaxSize().background(Bg), contentAlignment = Alignment.Center) {
         PinPad(
-            "Scycher Settings",
+            "Settings",
             onBiometric = if (sec.biometric && Security.biometricAvailable(ctx)) {
-                { Security.authenticate(nav, "Scycher Settings", onUnlocked) {} }
+                { Security.authenticate(nav, "Settings", onUnlocked) {} }
             } else null,
             onCancel = { nav.finish() },
         ) { p -> val ok = Security.verify(sec, p); if (ok) { Security.markUnlocked(); onUnlocked() }; ok }

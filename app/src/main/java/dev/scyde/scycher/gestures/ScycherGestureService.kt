@@ -67,7 +67,14 @@ class ScycherGestureService : AccessibilityService() {
         main.post { rebuild() }
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    /** Package of the window in front, from window-state events (no screen content is read). */
+    @Volatile private var frontPkg: String? = null
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            event.packageName?.toString()?.let { if (it != "android") frontPkg = it }
+        }
+    }
     override fun onInterrupt() {}
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
@@ -116,9 +123,15 @@ class ScycherGestureService : AccessibilityService() {
 
     private fun rebuild() {
         removeAll()
-        if (!cfg.enabled) return
         val dm = resources.displayMetrics
         val sw = dm.widthPixels; val sh = dm.heightPixels
+        if (cfg.homeRescue && SystemActions.hyperGesturesEnabled(this)) {
+            // HyperOS draws its own gestures; we only guard the bottom edge so Home always works.
+            val w = (sw * cfg.bottomWidthPercent / 100f).toInt()
+            add(BottomZone(this, rescue = true), baseParams(w, dp(cfg.bottomHeightDp.coerceAtMost(20)).toInt(), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, true), true)
+            return
+        }
+        if (!cfg.enabled) return
 
         if (cfg.showHandle && cfg.bottomHome) {
             val handle = HandleView(this, cfg)
@@ -191,8 +204,17 @@ class ScycherGestureService : AccessibilityService() {
     /* ----------------------------- zones ----------------------------- */
 
     @SuppressLint("ViewConstructor", "ClickableViewAccessibility")
-    private inner class BottomZone(ctx: Context) : View(ctx) {
+    private inner class BottomZone(ctx: Context, private val rescue: Boolean = false) : View(ctx) {
         private var sx = 0f; private var sy = 0f; private var rawX = 0f; private var rawY = 0f
+        private var pkgAtDown: String? = null
+        /**
+         * The system gesture handler stole the swipe (we got CANCEL). Give it a moment; if the same
+         * app is still in front, the system failed to go home (HyperOS + 3rd party launcher), so we do.
+         */
+        private val watchdog = Runnable {
+            val before = pkgAtDown
+            if (before != null && before == frontPkg && before != packageName) performGlobalAction(GLOBAL_ACTION_HOME)
+        }
         private var armed = false; private var recentsFired = false; private var downTime = 0L
         private var lastX = 0f; private var lastY = 0f
         private val hold = Runnable {
@@ -207,6 +229,7 @@ class ScycherGestureService : AccessibilityService() {
                 MotionEvent.ACTION_DOWN -> {
                     sx = e.x; sy = e.y; rawX = e.rawX; rawY = e.rawY; lastX = e.rawX; lastY = e.rawY
                     armed = false; recentsFired = false; downTime = e.eventTime
+                    pkgAtDown = frontPkg; main.removeCallbacks(watchdog)
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dy = e.rawY - rawY
@@ -226,7 +249,11 @@ class ScycherGestureService : AccessibilityService() {
                     }
                     armed = false
                 }
-                MotionEvent.ACTION_CANCEL -> { main.removeCallbacks(hold); armed = false }
+                MotionEvent.ACTION_CANCEL -> {
+                    main.removeCallbacks(hold)
+                    if (rescue && (armed || rawY - e.rawY > dp(6))) main.postDelayed(watchdog, 700)
+                    armed = false
+                }
             }
             return true
         }
@@ -313,5 +340,8 @@ class ScycherGestureService : AccessibilityService() {
         val running = MutableStateFlow(false)
 
         fun global(action: Int): Boolean = instance?.performGlobalAction(action) ?: false
+
+        /** Re-create the edge strips (e.g. after HyperOS gestures were switched on/off). */
+        fun refresh() { instance?.let { s -> s.main.post { s.rebuild() } } }
     }
 }

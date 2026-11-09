@@ -221,7 +221,7 @@ private fun MenuCard(req: MenuRequest) {
                 MenuDivider()
                 MenuRow("Wallpaper", Icons.Rounded.Wallpaper) { close(); state.wallpaperSheet = true }
                 MenuDivider()
-                MenuRow("Scycher Settings", Icons.Rounded.Settings) { close(); state.openSettings() }
+                MenuRow(androidx.compose.ui.res.stringResource(dev.scyde.scycher.R.string.settings_label), Icons.Rounded.Settings) { close(); state.openSettings() }
             }
             key != null -> {
                 val shortcuts by produceState<List<ShortcutInfo>>(emptyList(), key) {

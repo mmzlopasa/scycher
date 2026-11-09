@@ -51,6 +51,25 @@ object SystemActions {
         if (!ScycherGestureService.global(AccessibilityService.GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN)) needService(context)
     }
 
+    fun assistant(context: Context) {
+        val tries = listOf(Intent(Intent.ACTION_VOICE_COMMAND), Intent(Intent.ACTION_ASSIST), Intent("android.intent.action.VOICE_ASSIST"))
+        for (i in tries) if (runCatching { context.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess) return
+        Toast.makeText(context, "No assistant app found", Toast.LENGTH_SHORT).show()
+    }
+
+    fun camera(context: Context) {
+        val tries = listOf(Intent(android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA), Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE))
+        for (i in tries) if (runCatching { context.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess) return
+        Toast.makeText(context, "No camera app found", Toast.LENGTH_SHORT).show()
+    }
+
+    fun volumePanel(context: Context) {
+        runCatching {
+            context.getSystemService(android.media.AudioManager::class.java)
+                .adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_SAME, android.media.AudioManager.FLAG_SHOW_UI)
+        }
+    }
+
     /* --------------------------- flashlight --------------------------- */
 
     val torchOn = kotlinx.coroutines.flow.MutableStateFlow(false)
@@ -156,6 +175,7 @@ object SystemActions {
     fun setHyperGestures(context: Context, on: Boolean, hideLine: Boolean? = null): Boolean = try {
         Settings.Global.putInt(context.contentResolver, "force_fsg_nav_bar", if (on) 1 else 0)
         hideLine?.let { Settings.Global.putInt(context.contentResolver, "hide_gesture_line", if (it) 1 else 0) }
+        ScycherGestureService.refresh()
         true
     } catch (_: Throwable) { false }
 

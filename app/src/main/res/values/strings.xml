@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">Scycher</string>
-    <string name="settings_label">Scycher Settings</string>
+    <string name="settings_label">Settings</string>
     <string name="gesture_service_label">Scycher Gestures</string>
     <string name="gesture_service_description">Scycher Gestures adds swipe navigation (home, back, recents) and launcher actions such as lock screen and opening notifications. It only reacts to swipes on thin screen edges and never reads screen content.</string>
     <string name="notification_service_label">Scycher Badges &amp; Now Playing</string>

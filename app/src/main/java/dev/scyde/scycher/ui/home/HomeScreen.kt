@@ -138,6 +138,16 @@ fun LauncherRoot(state: LauncherState) {
                 geo.parallax = -(pos / n).coerceIn(0f, 1f) * geo.parallaxRange
             }
         }
+        // A light tick when a page settles (like a detent)
+        val hostView = androidx.compose.ui.platform.LocalView.current
+        LaunchedEffect(pager) {
+            var last = pager.settledPage
+            snapshotFlow { pager.settledPage }.collect { p ->
+                if (p != last && state.store.value.home.pageHaptics)
+                    hostView.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                last = p
+            }
+        }
         // Flip pages while dragging near the edges
         val drag = state.drag
         LaunchedEffect(drag?.active) {

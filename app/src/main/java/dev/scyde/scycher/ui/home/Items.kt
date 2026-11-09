@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -265,13 +266,22 @@ fun AppIcon(
         }
         if (showLabel) {
             Spacer(Modifier.height(6.dp))
-            Text(
-                labelOverride ?: (cfg.customLabels[key] ?: repo.map.collectAsState().value[key]?.label ?: ""),
-                style = labelStyle(labelColor),
-                maxLines = cfg.home.labelMaxLines,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.widthIn(max = iconSize * 1.45f),
-            )
+            val info = repo.map.collectAsState().value[key]
+            val isNew = cfg.home.newAppDot && info != null && !info.isSystem &&
+                System.currentTimeMillis() - info.installTime < 3 * 86_400_000L && repo.usageCount(key) == 0
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.widthIn(max = iconSize * 1.45f)) {
+                if (isNew) {
+                    Box(Modifier.size(7.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFF0A84FF)))
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(
+                    if (cfg.home.labelUppercase) label.uppercase() else label,
+                    style = labelStyle(labelColor),
+                    maxLines = cfg.home.labelMaxLines,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+            }
         }
     }
 }

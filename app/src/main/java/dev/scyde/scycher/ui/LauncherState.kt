@@ -245,6 +245,11 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
             GestureAction.SplitScreen -> SystemActions.splitScreen(context)
             GestureAction.Widgets -> { editMode = true; widgetPicker = true }
             GestureAction.LaunchApp -> appKey?.let { launch(it, null) }
+            GestureAction.Assistant -> SystemActions.assistant(context)
+            GestureAction.Camera -> SystemActions.camera(context)
+            GestureAction.VolumePanel -> SystemActions.volumePanel(context)
+            GestureAction.NextWallpaper -> scope.launch { dev.scyde.scycher.ScycherApp.instance.wallpaper.nextPack() }
+            GestureAction.WallpaperLightDark -> scope.launch { dev.scyde.scycher.ScycherApp.instance.wallpaper.toggleVariant() }
         }
     }
 

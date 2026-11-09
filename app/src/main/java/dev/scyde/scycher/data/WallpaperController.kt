@@ -217,6 +217,34 @@ class WallpaperController(private val context: Context, private val store: Confi
     }
 
     /** Called on resume / theme change: swaps dark ↔ light when the pack follows the system. */
+    /** Moves to the next design of the pack (keeps the dark/light preference). */
+    suspend fun nextPack() {
+        val c = store.value.look
+        val list = WallpaperPack.designs
+        val i = list.indexOfFirst { it.key == c.wallpaperPack }
+        val next = list[(i + 1).mod(list.size)].key
+        applyPack(next, c.wallpaperVariant)
+        store.update { it.copy(look = it.look.copy(wallpaperShuffleAt = System.currentTimeMillis())) }
+    }
+
+    /** Flips the pack wallpaper between its dark and light version. */
+    suspend fun toggleVariant() {
+        val c = store.value.look
+        val key = c.wallpaperPack ?: WallpaperPack.designs.first().key
+        val now = c.wallpaperApplied?.substringAfterLast('_') ?: variantFor(c.wallpaperVariant)
+        val v = if (now == "dark") "light" else "dark"
+        store.update { it.copy(look = it.look.copy(wallpaperVariant = v)) }
+        applyPack(key, v)
+    }
+
+    /** Called when the home screen comes back: shuffle the wallpaper when its time is up. */
+    fun maybeShuffle() {
+        val c = store.value.look
+        if (c.wallpaperShuffle.millis <= 0 || c.wallpaperMode != WallpaperMode.Scycher || c.wallpaperPack == null) return
+        if (System.currentTimeMillis() - c.wallpaperShuffleAt < c.wallpaperShuffle.millis) return
+        scope.launch { nextPack() }
+    }
+
     fun syncTheme() {
         val c = store.value.look
         val key = c.wallpaperPack ?: return

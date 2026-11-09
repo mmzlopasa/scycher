@@ -150,6 +150,12 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
             }
         }
         lifecycleScope.launch {
+            app.store.config.map { it.look.keepScreenOn }.distinctUntilChanged().collect { on ->
+                if (on) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
+        }
+        lifecycleScope.launch {
             app.store.config.map { it.look.orientation }.distinctUntilChanged().collect { o ->
                 requestedOrientation = when (o) {
                     dev.scyde.scycher.data.OrientationMode.Auto -> android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
@@ -163,6 +169,7 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
         app.wallpaper.syncTheme()
+        app.wallpaper.maybeShuffle()
         if (app.store.value.icons.style == dev.scyde.scycher.data.IconStyle.Auto) app.apps.invalidateIcons()
     }
 

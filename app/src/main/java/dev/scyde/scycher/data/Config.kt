@@ -78,6 +78,12 @@ data class HomeConfig(
     val lockLayout: Boolean = false,
     val homeButtonGoesToFirstPage: Boolean = true,
     val returnAnimation: Boolean = true,
+    /** Labels in CAPITALS. */
+    val labelUppercase: Boolean = false,
+    /** Light tick when a page snaps into place. */
+    val pageHaptics: Boolean = true,
+    /** iOS-style blue dot next to apps installed recently and not opened yet. */
+    val newAppDot: Boolean = true,
 )
 
 enum class PageIndicatorStyle { Pill, Dots, Lines, Hidden }
@@ -212,6 +218,11 @@ enum class GestureAction(val label: String) {
     PowerMenu("Power menu"),
     SplitScreen("Split screen"),
     Widgets("Add widget"),
+    Assistant("Assistant"),
+    Camera("Camera"),
+    VolumePanel("Volume"),
+    NextWallpaper("Next wallpaper"),
+    WallpaperLightDark("Wallpaper dark / light"),
     LaunchApp("Open an app"),
 }
 
@@ -242,7 +253,16 @@ data class LookConfig(
     val vignette: Float = 0f,
     val hideNavBar: Boolean = false,
     val orientation: OrientationMode = OrientationMode.Auto,
+    /** Keep the screen on while the home screen is showing. */
+    val keepScreenOn: Boolean = false,
+    /** Rotate through the Scycher wallpaper pack automatically. */
+    val wallpaperShuffle: WallpaperShuffle = WallpaperShuffle.Off,
+    val wallpaperShuffleAt: Long = 0,
 )
+
+enum class WallpaperShuffle(val label: String, val millis: Long) {
+    Off("Off", 0), Hourly("Every hour", 3_600_000), Daily("Every day", 86_400_000), Weekly("Every week", 604_800_000)
+}
 
 enum class OrientationMode { Auto, Landscape, Portrait }
 
@@ -275,6 +295,8 @@ data class NavGestureConfig(
     val vibrate: Boolean = true,
     val backIndicator: Boolean = true,
     val forwardTaps: Boolean = true,
+    /** With HyperOS gestures (option A): Scycher also watches the bottom edge and makes sure swipe up always goes home. */
+    val homeRescue: Boolean = false,
 )
 
 @Serializable

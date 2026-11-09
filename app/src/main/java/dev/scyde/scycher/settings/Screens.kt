@@ -218,7 +218,7 @@ fun GestureSettings() {
                 "Option B works without a computer."
         )
 
-        Group("Option A · HyperOS system gestures", footer = "Swipe up = Home (opens Scycher) · swipe up & hold = Recents · swipe in from the side = Back. Uses the original HyperOS animations.") {
+        Group("Option A · HyperOS system gestures", footer = "Swipe up = Home (opens Scycher) · swipe up & hold = Recents · swipe in from the side = Back. Uses the original HyperOS animations. If swipe up sometimes stays in an app, turn on “Always return Home”.") {
             StatusRow("Permission (one-time ADB)", canWrite, "Granted", "Needed")
             Divider()
             StatusRow("Full-screen gestures", hyper, "On", "Off")
@@ -231,6 +231,17 @@ fun GestureSettings() {
                 Divider()
                 SwitchRow("Hide gesture line", lineHidden, "The pill at the bottom of the screen") {
                     SystemActions.setHyperGestures(ctx, hyper, it); refresh++
+                }
+                Divider()
+                SwitchRow(
+                    "Always return Home", n.homeRescue && access,
+                    "Fixes swipe up not going home in some apps (e.g. Android Settings). Uses Scycher Gestures (Accessibility)."
+                ) { v ->
+                    nav { it.copy(homeRescue = v, enabled = if (v) false else it.enabled) }
+                    if (v && !access) {
+                        Toast.makeText(ctx, "Turn on “Scycher Gestures”, then come back", Toast.LENGTH_LONG).show()
+                        SystemActions.openAccessibilitySettings(ctx)
+                    }
                 }
             } else {
                 Divider()
@@ -421,6 +432,10 @@ fun HomeScreenSettings() {
             Divider()
             SwitchRow("Text shadow", h.labelShadow) { v -> set { it.copy(labelShadow = v) } }
             Divider()
+            SwitchRow("Capital letters", h.labelUppercase) { v -> set { it.copy(labelUppercase = v) } }
+            Divider()
+            SwitchRow("Mark new apps", h.newAppDot, "Blue dot next to apps you installed recently and haven't opened") { v -> set { it.copy(newAppDot = v) } }
+            Divider()
             ColorRow("Text color", h.labelColor) { v -> set { it.copy(labelColor = v) } }
         }
         Group("Pages") {
@@ -433,6 +448,8 @@ fun HomeScreenSettings() {
             SwitchRow("Zoom-in when returning home", h.returnAnimation) { v -> set { it.copy(returnAnimation = v) } }
             Divider()
             SwitchRow("Lock layout", h.lockLayout, "Prevents accidental dragging") { v -> set { it.copy(lockLayout = v) } }
+            Divider()
+            SwitchRow("Haptic page tick", h.pageHaptics, "A light tick when a page snaps into place") { v -> set { it.copy(pageHaptics = v) } }
         }
     }
 }
@@ -743,6 +760,10 @@ fun AppearanceSettings() {
             Divider()
             NavRow("Choose photo…", null) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
             Divider()
+            ChoiceRow("Change wallpaper automatically", dev.scyde.scycher.data.WallpaperShuffle.entries.toList(), l.wallpaperShuffle, { it.label }) { v ->
+                set { it.copy(wallpaperShuffle = v, wallpaperShuffleAt = System.currentTimeMillis()) }
+            }
+            Divider()
             SwitchRow("Also set lock screen", l.wallpaperSetSystem, "Pack wallpapers become the system home and lock screen wallpaper too") { v -> set { it.copy(wallpaperSetSystem = v) } }
             Divider()
             PercentSlider("Dim wallpaper", l.wallpaperDim, 0f..0.8f) { v -> set { it.copy(wallpaperDim = v) } }
@@ -777,6 +798,8 @@ fun AppearanceSettings() {
             SwitchRow("Hide navigation bar", l.hideNavBar, "Full immersive home screen – swipe from the edge to reveal") { v -> set { it.copy(hideNavBar = v) } }
             Divider()
             SwitchRow("Hide status bar", l.hideStatusBar) { v -> set { it.copy(hideStatusBar = v) } }
+            Divider()
+            SwitchRow("Keep screen on", l.keepScreenOn, "While the home screen is showing – handy on a stand") { v -> set { it.copy(keepScreenOn = v) } }
             Divider()
             SwitchRow("Dark status icons", l.darkStatusIcons, "For bright wallpapers") { v -> set { it.copy(darkStatusIcons = v) } }
         }
