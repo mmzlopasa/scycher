@@ -104,6 +104,7 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
     val today = Animatable(0f)
     var todayEdit by mutableStateOf(false)
     var customize by mutableStateOf(false)
+    var wallpaperSheet by mutableStateOf(false)
     /** Where the widget picker adds widgets: "home" or "today". */
     var pickerTarget by mutableStateOf("home")
     var appChooser by mutableStateOf<AppChooserRequest?>(null)
@@ -152,13 +153,14 @@ class LauncherState(val app: ScycherApp, val scope: CoroutineScope, val host: Ho
 
     /* ------------------------------ overlays ------------------------------ */
 
-    fun anyOverlay() = spotlight || controlCenter || customize || today.targetValue > 0f || pin != null || appChooser != null || categoryFor != null || menu != null || openFolderId != null || openCategory != null || widgetPicker ||
+    fun anyOverlay() = wallpaperSheet || spotlight || controlCenter || customize || today.targetValue > 0f || pin != null || appChooser != null || categoryFor != null || menu != null || openFolderId != null || openCategory != null || widgetPicker ||
         widgetSettingsId != null || rename != null || library.targetValue > 0f
 
     fun closeOverlays(): Boolean {
         var closed = false
         if (pin != null) { pin = null; closed = true }
         if (customize) { customize = false; closed = true }
+        if (wallpaperSheet) { wallpaperSheet = false; closed = true }
         if (spotlight) { spotlight = false; spotlightQuery = ""; closed = true }
         if (controlCenter) { controlCenter = false; closed = true }
         if (appChooser != null) { appChooser = null; closed = true }

@@ -465,8 +465,14 @@ fun IconSettings() {
             }
         }
         Group("Icon pack") {
-            ChoiceRow("Pack", listOf<String?>(null) + packs.map { it.pkg }, c.iconPack, { p -> if (p == null) "System" else packs.firstOrNull { it.pkg == p }?.label ?: p }) { v ->
-                set { it.copy(iconPack = v) }
+            ChoiceRow("Pack", listOf<String?>(null, dev.scyde.scycher.data.GlyphPack.ID) + packs.map { it.pkg }, c.iconPack, { p ->
+                when (p) { null -> "System"; dev.scyde.scycher.data.GlyphPack.ID -> "Scycher Glyphs"; else -> packs.firstOrNull { it.pkg == p }?.label ?: p }
+            }) { v -> set { it.copy(iconPack = v) } }
+            if (c.iconPack == dev.scyde.scycher.data.GlyphPack.ID) {
+                Divider()
+                SwitchRow("Match other apps", c.themeOthers, "Apps without a Scycher glyph get a matching tile from their own monochrome icon (Android 13+)") { v ->
+                    set { it.copy(themeOthers = v) }
+                }
             }
             if (packs.isEmpty()) InfoText("Install any ADW / Nova compatible icon pack from the Play Store and it will appear here.")
         }
@@ -717,6 +723,7 @@ fun HiddenApps() {
 @Composable
 fun AppearanceSettings() {
     val l = LocalConfig.current.look
+    val nav = LocalNav.current
     val scope = rememberCoroutineScope()
     fun set(block: (dev.scyde.scycher.data.LookConfig) -> dev.scyde.scycher.data.LookConfig) = update { it.copy(look = block(it.look)) }
     val wallpaper = ScycherApp.instance.wallpaper
@@ -730,7 +737,13 @@ fun AppearanceSettings() {
                 else set { it.copy(wallpaperMode = v) }
             }
             Divider()
-            NavRow("Choose wallpaper…", null) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+            NavRow("Scycher wallpapers", null, value = l.wallpaperPack?.let { k -> dev.scyde.scycher.data.WallpaperPack.designs.firstOrNull { it.key == k }?.name }) {
+                nav.nav += "wallpapers"
+            }
+            Divider()
+            NavRow("Choose photo…", null) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+            Divider()
+            SwitchRow("Also set lock screen", l.wallpaperSetSystem, "Pack wallpapers become the system home and lock screen wallpaper too") { v -> set { it.copy(wallpaperSetSystem = v) } }
             Divider()
             PercentSlider("Dim wallpaper", l.wallpaperDim, 0f..0.8f) { v -> set { it.copy(wallpaperDim = v) } }
             Divider()
@@ -855,4 +868,22 @@ fun AboutScreen() {
 
 private fun open(ctx: Context, url: String) {
     runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+}
+
+
+@Composable
+fun WallpapersScreen() {
+    val cfg = LocalConfig.current
+    val scope = rememberCoroutineScope()
+    val wallpaper = ScycherApp.instance.wallpaper
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch { wallpaper.setFromUri(uri, alsoSystem = cfg.look.wallpaperSetSystem) }
+    }
+    Page("Wallpapers") {
+        InfoText("Original Scycher artwork. Every wallpaper has a dark and a light version – with “Match dark mode” it switches with the system theme, like on iPad.")
+        Spacer(Modifier.height(8.dp))
+        dev.scyde.scycher.ui.common.WallpaperGallery(cfg, onPickPhoto = {
+            pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        }, columns = 3)
+    }
 }

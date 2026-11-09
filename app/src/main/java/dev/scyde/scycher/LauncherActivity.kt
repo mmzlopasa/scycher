@@ -162,6 +162,7 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
         super.onConfigurationChanged(newConfig)
+        app.wallpaper.syncTheme()
         if (app.store.value.icons.style == dev.scyde.scycher.data.IconStyle.Auto) app.apps.invalidateIcons()
     }
 
@@ -195,6 +196,15 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
         super.onResume()
         state.resumeTick++
         app.weather.refreshIfStale()
+        app.wallpaper.syncTheme()
+        app.apps.refreshLiveIcons()
+        liveTicker?.cancel()
+        liveTicker = lifecycleScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(60_000 - System.currentTimeMillis() % 60_000)
+                app.apps.refreshLiveIcons()
+            }
+        }
         if (wentAway) {
             wentAway = false
             if (app.store.value.home.returnAnimation && !reduceMotion()) state.scope.launch {
@@ -202,6 +212,13 @@ class LauncherActivity : ComponentActivity(), HostCallbacks {
                 state.enter.animateTo(1f, dev.scyde.scycher.ui.common.Motion.ui())
             }
         }
+    }
+
+    private var liveTicker: kotlinx.coroutines.Job? = null
+
+    override fun onPause() {
+        super.onPause()
+        liveTicker?.cancel(); liveTicker = null
     }
 
     override fun onStop() {

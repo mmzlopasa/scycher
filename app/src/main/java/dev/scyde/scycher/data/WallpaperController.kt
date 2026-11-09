@@ -179,12 +179,51 @@ class WallpaperController(private val context: Context, private val store: Confi
                     }
                 } catch (t: Throwable) { Log.w("Scycher", "set system wallpaper", t) }
             }
-            store.update { it.copy(look = it.look.copy(wallpaperMode = WallpaperMode.Scycher)) }
+            store.update { it.copy(look = it.look.copy(wallpaperMode = WallpaperMode.Scycher, wallpaperPack = null, wallpaperApplied = null)) }
             reload(); true
         } catch (t: Throwable) { Log.w("Scycher", "wallpaper", t); false }
     }
 
     fun hasCustom() = file.exists()
+
+    private fun night(): Boolean =
+        (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+
+    fun variantFor(pref: String) = when (pref) { "dark" -> "dark"; "light" -> "light"; else -> if (night()) "dark" else "light" }
+
+    /** Applies a built-in wallpaper (copies the asset, optionally sets it as the system wallpaper too). */
+    suspend fun applyPack(key: String, variantPref: String) = withContext(Dispatchers.IO) {
+        val variant = variantFor(variantPref)
+        try {
+            context.assets.open(WallpaperPack.asset(key, variant)).use { input -> file.outputStream().use { input.copyTo(it) } }
+            val c = store.value.look
+            if (c.wallpaperSetSystem) {
+                try {
+                    decodeScaled(file)?.let { b ->
+                        if (Build.VERSION.SDK_INT >= 24) wm.setBitmap(b, null, true, WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK)
+                        else wm.setBitmap(b)
+                    }
+                } catch (t: Throwable) { Log.w("Scycher", "set system wallpaper", t) }
+            }
+            store.update {
+                it.copy(look = it.look.copy(
+                    wallpaperMode = WallpaperMode.Scycher, wallpaperPack = key, wallpaperVariant = variantPref,
+                    wallpaperApplied = "${key}_$variant",
+                ))
+            }
+            reload()
+        } catch (t: Throwable) { Log.w("Scycher", "pack wallpaper", t) }
+    }
+
+    /** Called on resume / theme change: swaps dark ↔ light when the pack follows the system. */
+    fun syncTheme() {
+        val c = store.value.look
+        val key = c.wallpaperPack ?: return
+        if (c.wallpaperMode != WallpaperMode.Scycher) return
+        val want = "${key}_${variantFor(c.wallpaperVariant)}"
+        if (want != c.wallpaperApplied) scope.launch { applyPack(key, c.wallpaperVariant) }
+    }
 
     companion object {
         /** Fast box blur on a down-scaled copy (3 passes ≈ gaussian). */

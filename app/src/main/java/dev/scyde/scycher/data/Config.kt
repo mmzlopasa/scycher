@@ -98,6 +98,8 @@ data class IconConfig(
     val badgeColor: Long = 0xFFFF3B30,
     val pressScale: Float = 0.92f,
     val glassRim: Boolean = false,
+    /** With Scycher Glyphs: give apps without a glyph a matching tile made from their own monochrome icon. */
+    val themeOthers: Boolean = true,
 )
 
 enum class IconShape { Squircle, RoundedSquare, Circle, Teardrop, Pebble, Square, Hexagon, System }
@@ -228,6 +230,14 @@ data class LookConfig(
     val openAnimation: OpenAnimation = OpenAnimation.ScaleUp,
     /** Ambient theme: accent, dock and widget colors follow the wallpaper. */
     val adaptiveColors: Boolean = false,
+    /** Built-in wallpaper (WallpaperPack key) or null for a photo / the system wallpaper. */
+    val wallpaperPack: String? = null,
+    /** "auto" follows the system dark mode, or "dark" / "light". */
+    val wallpaperVariant: String = "auto",
+    /** Which pack image is currently applied, e.g. "bloom_dark". */
+    val wallpaperApplied: String? = null,
+    /** Also set pack wallpapers as the system home + lock screen wallpaper. */
+    val wallpaperSetSystem: Boolean = true,
     val wallpaperBlur: Float = 0f,
     val vignette: Float = 0f,
     val hideNavBar: Boolean = false,

@@ -128,6 +128,7 @@ fun SettingsRoot(activity: SettingsActivity) {
                     "about" -> AboutScreen()
                     "security" -> SecuritySettings()
                     "search" -> SearchSettings()
+                    "wallpapers" -> WallpapersScreen()
                     else -> MainScreen()
                 }
             }

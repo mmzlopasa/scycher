@@ -127,6 +127,7 @@ class AppRepository(private val context: Context, private val store: ConfigStore
             val collator = Collator.getInstance().apply { strength = Collator.PRIMARY }
             list.sortWith { a, b -> collator.compare(a.label, b.label) }
             synchronized(infos) { infos.clear(); infos.putAll(newInfos) }
+            GlyphPack.resetRoles()
             if (changedPkg != null) {
                 synchronized(cache) {
                     cache.snapshot().keys.filter { it.startsWith("$changedPkg/") }.forEach { cache.remove(it) }
@@ -162,6 +163,14 @@ class AppRepository(private val context: Context, private val store: ConfigStore
         return c.copy(style = if (night) IconStyle.Dark else IconStyle.Default)
     }
 
+    /** Live glyph icons (calendar date, clock hands) re-render once a minute while home is visible. */
+    fun refreshLiveIcons() {
+        val keys = synchronized(GlyphPack.liveKeys) { GlyphPack.liveKeys.toList() }
+        if (keys.isEmpty() || store.value.icons.iconPack != GlyphPack.ID) return
+        synchronized(cache) { keys.forEach { cache.remove(it) } }
+        _iconGen.value++
+    }
+
     /** Re-render a single icon (e.g. after picking a custom image). */
     fun invalidate(key: String) {
         synchronized(cache) { cache.remove(key) }
@@ -179,7 +188,7 @@ class AppRepository(private val context: Context, private val store: ConfigStore
         val sizePx = (maxIconDp(cfg) * density * 1.15f).toInt().coerceIn(48, 320)
         val packName = cfg.icons.iconPack
         if (packName != iconPackName) {
-            iconPack = packName?.let { runCatching { IconPack(context, it) }.getOrNull() }
+            iconPack = packName?.takeIf { it != GlyphPack.ID }?.let { runCatching { IconPack(context, it) }.getOrNull() }
             iconPackName = packName
         }
         val dpi = context.resources.displayMetrics.densityDpi
@@ -191,8 +200,11 @@ class AppRepository(private val context: Context, private val store: ConfigStore
                 r.prepareToDraw()
                 return r.asImageBitmap().also { synchronized(cache) { cache.put(key, it) } }
             }
-            val packed = iconPack?.icon(info.componentName.flattenToString(), dpi)
-            if (packed != null) {
+            val glyph = if (packName == GlyphPack.ID) GlyphPack.icon(context, key, info, cfg.icons.themeOthers, dpi) else null
+            val packed = if (glyph == null) iconPack?.icon(info.componentName.flattenToString(), dpi) else null
+            if (glyph != null) {
+                IconRenderer.render(glyph, sizePx, resolvedIcons(cfg.icons))
+            } else if (packed != null) {
                 Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888).also {
                     val c = Canvas(it); packed.setBounds(0, 0, sizePx, sizePx); packed.draw(c)
                 }

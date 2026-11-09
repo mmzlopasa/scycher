@@ -24,6 +24,8 @@ Then press Home and choose **Scycher** → *Always* (or Settings › Apps › De
 - **Long-press menus** with app shortcuts, add to home/dock, rename, info, uninstall.
 - **Home gestures** – swipe up/down, double tap, two-finger swipes and pinch can open the library, notifications, quick settings, lock the screen, take a screenshot or launch any app.
 - **iPadOS look** – Liquid Glass surfaces with specular rims, **Spotlight** (swipe down in the middle), **Control Center** (swipe down on the right: brightness & volume sliders, Wi‑Fi, Bluetooth, flashlight, rotation lock, music…), **Today View** (swipe right on the first page), iOS **Customize** sheet (Default / Dark / Clear / Tinted / Automatic icons, Small / Large) and an App Library button in the dock.
+- **Wallpaper pack** – 8 original iPad-style wallpapers, each dark + light, switching automatically with dark mode ([`wallpapers/`](wallpapers/)).
+- **Scycher Glyphs icon pack** – iOS-style glyph tiles matched by app role (browser, messages, camera, photos, music, settings…), a live calendar date and clock, and matching tiles for every other app.
 - **Ambient theme** – accent, dock and widget colors follow your wallpaper automatically.
 - **Smart search** – calculator (`12*7+3`), system settings (`wifi`, `bluetooth`…), in-app shortcuts, choice of Google / DuckDuckGo / Bing / Brave / Ecosia / Perplexity, plus YouTube, Maps and Play Store.
 - **Smart suggestions** – learns which apps you open at each time of day.

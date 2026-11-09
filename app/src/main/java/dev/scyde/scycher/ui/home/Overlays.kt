@@ -219,7 +219,7 @@ private fun MenuCard(req: MenuRequest) {
                 MenuDivider()
                 MenuRow("Customize", Icons.Rounded.Tune) { close(); state.editMode = true; state.customize = true }
                 MenuDivider()
-                MenuRow("Wallpaper", Icons.Rounded.Wallpaper) { close(); state.host.pickWallpaper() }
+                MenuRow("Wallpaper", Icons.Rounded.Wallpaper) { close(); state.wallpaperSheet = true }
                 MenuDivider()
                 MenuRow("Scycher Settings", Icons.Rounded.Settings) { close(); state.openSettings() }
             }

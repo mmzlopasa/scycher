@@ -194,6 +194,19 @@ class LauncherScreenshotTest {
         rule.runOnUiThread { state.scope.launch { state.pager.scrollToPage(state.store.value.layout.pages.lastIndex) } }
         settle(1500)
         shot("24_break_ui")
+
+        rule.runOnUiThread { state.scope.launch { state.pager.scrollToPage(0) } }
+        settle(800)
+        rule.runOnUiThread { state.wallpaperSheet = true }
+        settle(2500)
+        shot("25_wallpaper_sheet")
+        rule.runOnUiThread { state.wallpaperSheet = false }
+        settle(800)
+        runBlocking { app.wallpaper.applyPack("tide", "dark") }
+        Thread.sleep(2000)
+        rule.runOnUiThread { app.store.update { it.copy(icons = it.icons.copy(iconPack = dev.scyde.scycher.data.GlyphPack.ID)) } }
+        settle(2500)
+        shot("26_pack_wallpaper_home")
     }
 }
 

@@ -214,6 +214,12 @@ fun LauncherRoot(state: LauncherState) {
             dev.scyde.scycher.ui.ipad.Spotlight()
             dev.scyde.scycher.ui.ipad.ControlCenter()
             dev.scyde.scycher.ui.ipad.CustomizeSheet()
+            dev.scyde.scycher.ui.common.BottomSheet(state.wallpaperSheet, { state.wallpaperSheet = false }, maxWidth = 900) {
+                androidx.compose.material3.Text("Wallpaper", style = dev.scyde.scycher.ui.common.TypeScale.Title1,
+                    color = androidx.compose.ui.graphics.Color.White, modifier = Modifier.padding(start = 20.dp, bottom = 10.dp))
+                dev.scyde.scycher.ui.common.WallpaperGallery(cfg, onPickPhoto = { state.wallpaperSheet = false; state.host.pickWallpaper() })
+                Spacer(Modifier.height(10.dp))
+            }
             CategoryChooser()
             Onboarding()
             PinOverlay()
@@ -634,7 +640,7 @@ private fun EditBar(modifier: Modifier) {
             val page = cfg.layout.pages.getOrNull(cur)
             if (cfg.layout.pages.size > 1 && page != null && page.items.isEmpty())
                 GlassButton("", Icons.Rounded.DeleteOutline, contentDescription = "Delete page") { state.deletePage(cur) }
-            GlassButton("", Icons.Rounded.Wallpaper, contentDescription = "Change wallpaper") { state.host.pickWallpaper() }
+            GlassButton("", Icons.Rounded.Wallpaper, contentDescription = "Change wallpaper") { state.wallpaperSheet = true }
             GlassButton("", Icons.Rounded.Settings, contentDescription = "Scycher settings") { state.openSettings() }
             Spacer(Modifier.weight(1f))
             GlassButton("Done", prominent = true, accent = Color.White) { state.editMode = false; state.tidyPages() }
